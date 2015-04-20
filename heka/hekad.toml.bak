@@ -1,0 +1,62 @@
+# Heka dashboard for internal metrics and time series graphs
+[Dashboard]
+type = "DashboardOutput"
+address = ":4352"
+ticker_interval = 15
+
+[tcp:2003]
+type = "TcpInput"
+splitter = "TokenSplitter"
+decoder = "cf-collector-graphite-decoder"
+address = ":2003"
+
+[cf-collector-graphite-decoder]
+type = "PayloadRegexDecoder"
+# cf-np.DEA.0.10-1-2-3.available_memory_ratio 1.0 1428091803
+match_regex = '^(?P<Env>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<IP>[^.]+)[.](?P<Metric>\S+) (?P<Value>\S+) (?P<Timestamp>\d+)\s*$'
+timestamp_layout = "Epoch"
+
+    [cf-collector-graphite-decoder.message_fields]
+    Type = "CFCollector"
+    Env = "%Env%"
+    Job = "%Job%"
+    Index = "%Index%"
+    IP = "%IP%"
+    Metric = "%Metric%"
+    Value = "%Value%"
+
+[influxdb-encoder]
+type = "SandboxEncoder"
+filename = "lua_encoders/schema_influx.lua"
+
+    [influxdb-encoder.config]
+    series = "%{Metric}"
+    skip_fields = "Pid EnvVersion Hostname Type Payload Logger Severity"
+    exclude_base_fields = true
+
+
+[PayloadEncoder]
+append_newlines = false
+
+[RstEncoder]
+
+[LogOutput]
+message_matcher = 'Type =~ /heka\.*/'
+encoder = "RstEncoder"
+
+[influxdb-output]
+type = "HttpOutput"
+message_matcher = "Type == 'CFCollector'"
+address = "http://influxdb:8086/db/cf_np/series"
+username = "root"
+password = "root"
+encoder = "influxdb-encoder"
+
+[avail_mem_ratio-lt-1]
+type = "LogOutput"
+message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < 1.0'
+# message_matcher = 'Type == "CFCollector"'
+encoder = "RstEncoder"
+
+[hekad]
+base_dir = "/var/cache/hekad"

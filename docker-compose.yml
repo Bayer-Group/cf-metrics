@@ -1,0 +1,27 @@
+influxdb:
+  image: tutum/influxdb
+  ports: 
+   - "8083:8083"
+   - "8086:8086"
+  expose:
+   - "8090"
+   - "8099"
+  environment:
+   - PRE_CREATE_DB=cf_np
+heka:
+  image: mjseid/heka:v1
+  ports: 
+  - "2003:2003"
+  - "4352:4352"
+  volumes:
+  - /home/mjseid/cf-metrics/heka/hekad.toml:/etc/hekad/hekad.toml:ro
+  - /home/mjseid/cf-metrics/heka/slack.lua:/usr/share/heka/lua_encoders/slack.lua:ro
+  - /home/mjseid/cf-metrics/heka/dea.lua:/usr/share/heka/lua_filters/dea.lua:ro
+  links:
+  - influxdb
+grafana:
+  image: grafana/grafana
+  ports:
+  - "3000:3000"
+  links: 
+  - influxdb 
