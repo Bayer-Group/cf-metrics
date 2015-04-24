@@ -56,8 +56,9 @@ encoder = "influxdb-encoder"
 
 #[avail_mem_ratio-lt-1]
 #type = "LogOutput"
-#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < 1.0'
-# message_matcher = 'Type == "CFCollector"'
+#message_matcher = "Logger == 'DEA_filter'"
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+#message_matcher = 'Type == "CFCollector"'
 #encoder = "RstEncoder"
 
 # sends emails alerts with simple throttling
@@ -73,10 +74,12 @@ encoder = "influxdb-encoder"
 
 [DEA_filter]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.20"'
 filename = "lua_filters/dea.lua"
-can_exit = false
-preserve_data = true
+can_exit = true
+#can_exit = false
+preserve_data = false
 ticker_interval = 60
 
 [AlertEncoder]
@@ -90,7 +93,7 @@ filename = "lua_encoders/slack.lua"
   [SlackEncoder.config]
   username = "heka-bot"
 #  channel = "#cloudfoundry"
-  channel = "#flood"
+  channel = "#hekatesting"
 
 [SlackOutput]
 type = "HttpOutput"

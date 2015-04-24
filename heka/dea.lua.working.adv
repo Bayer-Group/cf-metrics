@@ -14,7 +14,7 @@ function process_message ()
     if ip == nil then 
         ip = "_unknown_"
     end
-    if ratio < "0.15" then
+    if ratio < "0.84" then
        count = count + 1
        stats.ip = ip
        stats.ratio = ratio
@@ -31,7 +31,7 @@ function timer_event(ns)
        for k, v in pairs(deas) do
     	  add_to_payload(string.format("%s\t%s\n", v.ip, v.ratio))
        end
-       add_to_payload(string.format("%d messages in the last minute for DEA's with less than 15 percent memory; %d had less than 20 percent", count, total))
+       add_to_payload(string.format("%d messages in the last minute for DEA's with less than 84 percent memory; %d had less than 88 percent", count, total))
        inject_payload()
     end   
        count=0
