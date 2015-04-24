@@ -12,19 +12,29 @@ address = ":2003"
 
 #  nifty go regex tester https://regoio.herokuapp.com/
 [cf-collector-graphite-decoder]
+type = "MultiDecoder"
+subs = ['cf-collector-regex', 'StatsToFieldsDecoder']
+cascade_strategy = "all"
+log_sub_errors = true
+
+[cf-collector-regex]
 type = "PayloadRegexDecoder"
 # cf-np.DEA.0.10-1-2-3.available_memory_ratio 1.0 1428091803
-match_regex = '^(?P<Env>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<IP>[^.]+)[.](?P<Metric>\S+) (?P<Value>\S+) (?P<Timestamp>\d+)\s*$'
-timestamp_layout = "Epoch"
+#match_regex = '^(?P<Env>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<IP>[^.]+)[.](?P<Metric>\S+) (?P<Value>\S+) (?P<Timestamp>\d+)\s*$'
+match_regex = '^(?P<Env>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<IP>[^.]+)[.](?P<Payload>.*)\s*$'
+#timestamp_layout = "Epoch"
 
-    [cf-collector-graphite-decoder.message_fields]
+    [cf-collector-regex.message_fields]
     Type = "CFCollector"
     Env = "%Env%"
     Job = "%Job%"
     Index = "%Index%"
     IP = "%IP%"
-    Metric|double = "%Metric%"
-    Value = "%Value%"
+    Payload = "%Payload%"
+
+[StatsToFieldsDecoder]
+
+
 
 [influxdb-encoder]
 type = "SandboxEncoder"
@@ -44,6 +54,11 @@ append_newlines = false
 # This is useful for debugging, log everything out to stdout
 #[LogOutput]
 #message_matcher = 'Type =~ /heka\.*/'
+#encoder = "RstEncoder"
+
+# grab the heka process report and output to stdout
+#[LogOutput]
+#message_matcher = "Logger == DEA_filter || Logger == HekaProcessMessageFailures"
 #encoder = "RstEncoder"
 
 [influxdb-output]
@@ -72,15 +87,38 @@ encoder = "influxdb-encoder"
 #encoder = "AlertEncoder"
 #send_interval = 300
 
+# :Timestamp: 2015-04-24 19:27:24.496658183 +0000 UTC
+# :Type: CFCollector
+# :Hostname: 10.32.120.161:45926
+# :Pid: 0
+# :Uuid: e5e69bba-8727-4192-b98c-c55054e8a79f
+# :Logger: tcp:2003
+# :Payload: nats.latency.1m 1429903615714 1429903645
+# :EnvVersion: 
+# :Severity: 7
+# :Fields:
+#     | name:"Env" type:string value:"cf-np"
+#     | name:"Job" type:string value:"collector"
+#     | name:"Index" type:string value:"0"
+#     | name:"IP" type:string value:"nil"
+#     | name:"nats.latency.1m" type:double value:1.429903615714e+12
+#     | name:"timestamp" type:integer value:1429903645
+
 [DEA_filter]
 type = "SandboxFilter"
 #message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
-message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.20"'
+message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20'
 filename = "lua_filters/dea.lua"
 can_exit = true
 #can_exit = false
 preserve_data = false
-ticker_interval = 60
+
+[CFHealth_filter]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFCollector" && Fields[healthy] != 1.0'
+filename = "lua_filters/jobhealth.lua"
+can_exit = true
+preserve_data = false
 
 [AlertEncoder]
 type = "SandboxEncoder"
@@ -95,11 +133,22 @@ filename = "lua_encoders/slack.lua"
 #  channel = "#cloudfoundry"
   channel = "#hekatesting"
 
-[SlackOutput]
-type = "HttpOutput"
-message_matcher = "Logger == 'DEA_filter'" 
-address = "https://hooks.slack.com/services/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"
-encoder = "SlackEncoder"
+[LogOutput]
+message_matcher = 'Logger == "DEA_filter" || Logger == "CFHealth_filter"' 
+encoder = "AlertEncoder"
+
+[LogOutput2]
+type = "LogOutput"
+#message_matcher = 'Type == "CFCollector" && Fields[Metric] == "healthy" && Fields[Value] != 1.0'
+message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20))'
+encoder = "RstEncoder"
+
+
+#[SlackOutput]
+#type = "HttpOutput"
+#message_matcher = "Logger == 'DEA_filter'" 
+#address = "https://hooks.slack.com/services/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"
+#encoder = "SlackEncoder"
 
 # works but sends every match directly to slack (no throttling, etc).
 #[SlackOutput]
@@ -107,6 +156,16 @@ encoder = "SlackEncoder"
 #message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
 #address = "https://hooks.slack.com/services/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"
 #encoder = "SlackEncoder"
+
+# use this to grab lua failures
+#[HekaProcessMessageFailures]
+#type = "SandboxFilter"
+#filename = "lua_filters/heka_process_message_failures.lua"
+#ticker_interval = 60
+#preserve_data = false # the counts are reset on Heka restarts and the monitoring should be too.
+#message_matcher = "Type == 'heka.all-report'"
+
+
 
 [hekad]
 base_dir = "/var/cache/hekad"

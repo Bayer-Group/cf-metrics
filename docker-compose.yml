@@ -17,6 +17,7 @@ heka:
   - /home/mjseid/cf-metrics/heka/hekad.toml:/etc/hekad/hekad.toml:ro
   - /home/mjseid/cf-metrics/heka/slack.lua:/usr/share/heka/lua_encoders/slack.lua:ro
   - /home/mjseid/cf-metrics/heka/dea.lua:/usr/share/heka/lua_filters/dea.lua:ro
+  - /home/mjseid/cf-metrics/heka/jobhealth.lua:/usr/share/heka/lua_filters/jobhealth.lua:ro
   links:
   - influxdb
 grafana:

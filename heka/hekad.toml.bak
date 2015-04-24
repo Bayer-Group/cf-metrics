@@ -10,6 +10,7 @@ splitter = "TokenSplitter"
 decoder = "cf-collector-graphite-decoder"
 address = ":2003"
 
+#  nifty go regex tester https://regoio.herokuapp.com/
 [cf-collector-graphite-decoder]
 type = "PayloadRegexDecoder"
 # cf-np.DEA.0.10-1-2-3.available_memory_ratio 1.0 1428091803
@@ -22,7 +23,7 @@ timestamp_layout = "Epoch"
     Job = "%Job%"
     Index = "%Index%"
     IP = "%IP%"
-    Metric = "%Metric%"
+    Metric|double = "%Metric%"
     Value = "%Value%"
 
 [influxdb-encoder]
@@ -40,9 +41,15 @@ append_newlines = false
 
 [RstEncoder]
 
-[LogOutput]
-message_matcher = 'Type =~ /heka\.*/'
-encoder = "RstEncoder"
+# This is useful for debugging, log everything out to stdout
+#[LogOutput]
+#message_matcher = 'Type =~ /heka\.*/'
+#encoder = "RstEncoder"
+
+# grab the heka process report and output to stdout
+#[LogOutput]
+#message_matcher = "Logger == DEA_filter || Logger == HekaProcessMessageFailures"
+#encoder = "RstEncoder"
 
 [influxdb-output]
 type = "HttpOutput"
@@ -52,11 +59,81 @@ username = "root"
 password = "root"
 encoder = "influxdb-encoder"
 
-[avail_mem_ratio-lt-1]
-type = "LogOutput"
-message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < 1.0'
-# message_matcher = 'Type == "CFCollector"'
-encoder = "RstEncoder"
+#[avail_mem_ratio-lt-1]
+#type = "LogOutput"
+#message_matcher = "Logger == 'DEA_filter'"
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+#message_matcher = 'Type == "CFCollector"'
+#encoder = "RstEncoder"
+
+# sends emails alerts with simple throttling
+#[DEA_available_memory_alert]
+#type = "SmtpOutput"
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+#send_from = "heka@monsanto.com"
+#send_to = ["mjseid@monsanto.com"]
+#auth = "none"
+#host = "mail.monsanto.com:25"
+#encoder = "AlertEncoder"
+#send_interval = 300
+
+[DEA_filter]
+type = "SandboxFilter"
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.20"'
+filename = "lua_filters/dea.lua"
+can_exit = true
+#can_exit = false
+preserve_data = false
+ticker_interval = 60
+
+[CFHealth_filter]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFCollector" && Fields[Metric] == "healthy" && Fields[Value] != "1"'
+filename = "lua_filters/jobhealth.lua"
+can_exit = true
+preserve_data = false
+
+[AlertEncoder]
+type = "SandboxEncoder"
+filename = "lua_encoders/alert.lua"
+
+[SlackEncoder]
+type = "SandboxEncoder"
+filename = "lua_encoders/slack.lua"
+
+  [SlackEncoder.config]
+  username = "heka-bot"
+#  channel = "#cloudfoundry"
+  channel = "#hekatesting"
+
+[LogOutput]
+message_matcher = 'Logger == "DEA_filter" || Logger == "CFHealth_filter"'
+encoder = "AlertEncoder"
+
+
+#[SlackOutput]
+#type = "HttpOutput"
+#message_matcher = "Logger == 'DEA_filter'" 
+#address = "https://hooks.slack.com/services/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"
+#encoder = "SlackEncoder"
+
+# works but sends every match directly to slack (no throttling, etc).
+#[SlackOutput]
+#type = "HttpOutput"
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[Value] < "0.88"'
+#address = "https://hooks.slack.com/services/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"
+#encoder = "SlackEncoder"
+
+# use this to grab lua failures
+#[HekaProcessMessageFailures]
+#type = "SandboxFilter"
+#filename = "lua_filters/heka_process_message_failures.lua"
+#ticker_interval = 60
+#preserve_data = false # the counts are reset on Heka restarts and the monitoring should be too.
+#message_matcher = "Type == 'heka.all-report'"
+
+
 
 [hekad]
 base_dir = "/var/cache/hekad"
