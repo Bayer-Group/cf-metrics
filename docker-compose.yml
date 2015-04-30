@@ -1,13 +1,17 @@
 influxdb:
-  image: tutum/influxdb
+  #image: mjseid/influxdb
+  image: mjseid/influxdb9rc26 
   ports: 
-   - "8083:8083"
-   - "8086:8086"
+  - "8083:8083"
+  - "8086:8086"
   expose:
-   - "8090"
-   - "8099"
+  - "8090"
+  - "8099"
+  volumes:
+  - /home/mjseid/influx_image/config.toml:/config/config.toml:ro
+  - /home/mjseid/influx_image/run.sh:/run.sh:ro 
   environment:
-   - PRE_CREATE_DB=cf_np
+  - PRE_CREATE_DB=cf_np
 heka:
   image: mjseid/heka:v1
   ports: 
@@ -18,6 +22,8 @@ heka:
   - /home/mjseid/cf-metrics/heka/slack.lua:/usr/share/heka/lua_encoders/slack.lua:ro
   - /home/mjseid/cf-metrics/heka/dea.lua:/usr/share/heka/lua_filters/dea.lua:ro
   - /home/mjseid/cf-metrics/heka/jobhealth.lua:/usr/share/heka/lua_filters/jobhealth.lua:ro
+  - /home/mjseid/cf-metrics/heka/schema_influx_write.lua:/usr/share/heka/lua_encoders/schema_influx_write.lua:ro
+  - /home/mjseid/cf-metrics/heka/msg_interpolate.lua:/usr/share/heka/lua_modules/msg_interpolate.lua:ro
   links:
   - influxdb
 grafana:
