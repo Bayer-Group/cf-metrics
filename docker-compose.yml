@@ -8,8 +8,8 @@ influxdb:
   - "8090"
   - "8099"
   volumes:
-  - /home/mjseid/influx_image/config.toml:/config/config.toml:ro
-  - /home/mjseid/influx_image/run.sh:/run.sh:ro 
+  - /cf-metrics/influxdb/config.toml:/config/config.toml:ro
+  - /cf-metrics/influxdb/run.sh:/run.sh:ro 
   environment:
   - PRE_CREATE_DB=cf_np;cf_prd
 heka:
@@ -18,12 +18,12 @@ heka:
   - "2003:2003"
   - "4352:4352"
   volumes:
-  - /home/mjseid/cf-metrics/heka/hekad.toml:/etc/hekad/hekad.toml:ro
-  - /home/mjseid/cf-metrics/heka/slack.lua:/usr/share/heka/lua_encoders/slack.lua:ro
-  - /home/mjseid/cf-metrics/heka/dea.lua:/usr/share/heka/lua_filters/dea.lua:ro
-  - /home/mjseid/cf-metrics/heka/jobhealth.lua:/usr/share/heka/lua_filters/jobhealth.lua:ro
-  - /home/mjseid/cf-metrics/heka/schema_influx_write.lua:/usr/share/heka/lua_encoders/schema_influx_write.lua:ro
-  - /home/mjseid/cf-metrics/heka/msg_interpolate.lua:/usr/share/heka/lua_modules/msg_interpolate.lua:ro
+  - /cf-metrics/heka/hekad.toml:/etc/hekad/hekad.toml:ro
+  - /cf-metrics/heka/slack.lua:/usr/share/heka/lua_encoders/slack.lua:ro
+  - /cf-metrics/heka/dea.lua:/usr/share/heka/lua_filters/dea.lua:ro
+  - /cf-metrics/heka/jobhealth.lua:/usr/share/heka/lua_filters/jobhealth.lua:ro
+  - /cf-metrics/heka/schema_influx_write.lua:/usr/share/heka/lua_encoders/schema_influx_write.lua:ro
+  - /cf-metrics/heka/msg_interpolate.lua:/usr/share/heka/lua_modules/msg_interpolate.lua:ro
   links:
   - influxdb
 grafana:
