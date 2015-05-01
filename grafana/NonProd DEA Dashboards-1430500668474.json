@@ -1,7 +1,7 @@
 {
-  "id": 2,
-  "title": "Prod DEA Dashboards",
-  "originalTitle": "Prod DEA Dashboards",
+  "id": 1,
+  "title": "NonProd DEA Dashboards",
+  "originalTitle": "NonProd DEA Dashboards",
   "tags": [],
   "style": "dark",
   "timezone": "browser",
@@ -17,7 +17,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "influxdb_prd",
+          "datasource": null,
           "editable": true,
           "error": false,
           "fill": 0,
@@ -58,11 +58,12 @@
           "targets": [
             {
               "hide": false,
-              "measurement": "DEA_available_memory_ratio",
-              "query": "SELECT value FROM \"DEA.available_memory_ratio\" WHERE $timeFilter GROUP BY IP  ORDER BY asc",
+              "measurement": "available_memory_ratio",
+              "query": "SELECT value FROM \"available_memory_ratio\" WHERE $timeFilter AND Job='DEA' GROUP BY IP time($interval) ORDER BY asc",
               "rawQuery": true,
               "tags": {
-                "IP": "10-32-120-151"
+                "IP": "select tag value",
+                "Job": "DEA"
               }
             }
           ],
@@ -92,7 +93,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": "influxdb_prd",
+          "datasource": null,
           "editable": true,
           "error": false,
           "fill": 0,
@@ -134,7 +135,7 @@
             {
               "hide": false,
               "measurement": "*.healthy",
-              "query": "SELECT mean(value) FROM \"uaa.healthy\" WHERE $timeFilter  GROUP BY time($interval) ORDER BY asc",
+              "query": "SELECT value FROM \"healthy\" WHERE $timeFilter GROUP BY Job time($interval) ORDER BY asc",
               "rawQuery": true,
               "tags": {
                 "v": "select tag value"

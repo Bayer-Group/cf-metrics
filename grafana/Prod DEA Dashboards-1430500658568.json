@@ -1,7 +1,7 @@
 {
-  "id": 1,
-  "title": "NonProd DEA Dashboards",
-  "originalTitle": "NonProd DEA Dashboards",
+  "id": 2,
+  "title": "Prod DEA Dashboards",
+  "originalTitle": "Prod DEA Dashboards",
   "tags": [],
   "style": "dark",
   "timezone": "browser",
@@ -17,74 +17,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": null,
-          "editable": true,
-          "error": false,
-          "fill": 0,
-          "grid": {
-            "leftLogBase": 1,
-            "leftMax": null,
-            "leftMin": null,
-            "rightLogBase": 1,
-            "rightMax": null,
-            "rightMin": null,
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 1,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 3,
-          "points": true,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "hide": false,
-              "measurement": "DEA_available_memory_ratio",
-              "query": "SELECT mean(value) FROM \"DEA.available_memory_ratio\" WHERE $timeFilter AND IP='10-32-120-151' GROUP BY time($interval) ORDER BY asc",
-              "rawQuery": true,
-              "tags": {
-                "IP": "10-32-120-151"
-              }
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "DEA Available Memory Ratio",
-          "tooltip": {
-            "shared": true,
-            "value_type": "cumulative"
-          },
-          "type": "graph",
-          "x-axis": true,
-          "y-axis": true,
-          "y_formats": [
-            "short",
-            "short"
-          ]
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": null,
+          "datasource": "influxdb9_prd",
           "editable": true,
           "error": false,
           "fill": 0,
@@ -126,7 +59,7 @@
             {
               "hide": false,
               "measurement": "DEA_available_memory_ratio",
-              "query": "SELECT value FROM \"DEA.available_memory_ratio\" WHERE $timeFilter GROUP BY IP  ORDER BY asc",
+              "query": "SELECT value FROM \"available_memory_ratio\" WHERE $timeFilter AND Job='DEA' GROUP BY IP time($interval) ORDER BY asc",
               "rawQuery": true,
               "tags": {
                 "IP": "10-32-120-151"
@@ -159,7 +92,7 @@
         {
           "aliasColors": {},
           "bars": false,
-          "datasource": null,
+          "datasource": "influxdb9_prd",
           "editable": true,
           "error": false,
           "fill": 0,
@@ -201,7 +134,7 @@
             {
               "hide": false,
               "measurement": "*.healthy",
-              "query": "SELECT mean(value) FROM \"uaa.healthy\" WHERE $timeFilter  GROUP BY time($interval) ORDER BY asc",
+              "query": "SELECT value FROM \"healthy\" WHERE $timeFilter GROUP BY Job time($interval) ORDER BY asc",
               "rawQuery": true,
               "tags": {
                 "v": "select tag value"

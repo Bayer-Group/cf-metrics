@@ -30,5 +30,7 @@ grafana:
   image: grafana/grafana
   ports:
   - "3000:3000"
+  volumes:
+  - /cf-metrics/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
   links: 
   - influxdb 

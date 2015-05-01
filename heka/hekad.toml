@@ -42,14 +42,14 @@ filename = "lua_encoders/schema_influx_write.lua"
     [influxdb-encoder-np.config]
     skip_fields = "**all_base** Env IP Index Job Metric"
     database = "cf_np"
-    name_prefix = "%{Job}"
-    tag_fields = "IP"
+    name_prefix = "**none**"
+    tag_fields = "Job Index IP"
     timestamp_precision= "s"
 
 [influxdb-output-np]
 type = "HttpOutput"
 # take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
-message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-np' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*/"
+message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-np' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
 address = "http://influxdb:8086/write"
 username = "root"
 password = "root"
@@ -63,14 +63,14 @@ filename = "lua_encoders/schema_influx_write.lua"
     [influxdb-encoder-prd.config]
     skip_fields = "**all_base** Env IP Index Job Metric"
     database = "cf_prd"
-    name_prefix = "%{Job}"
-    tag_fields = "IP"
+    name_prefix = "**none**"
+    tag_fields = "Job Index IP"
     timestamp_precision= "s"
 
 [influxdb-output-prd]
 type = "HttpOutput"
 # take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
-message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-prd' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*/"
+message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-prd' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
 address = "http://influxdb:8086/write"
 username = "root"
 password = "root"
