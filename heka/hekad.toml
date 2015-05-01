@@ -35,30 +35,46 @@ timestamp_layout = "Epoch"
     Metric = "%Metric%"
 
 # send data to influxdb for persistence
-[influxdb-encoder]
+[influxdb-encoder-np]
 type = "SandboxEncoder"
 filename = "lua_encoders/schema_influx_write.lua"
 
-    [influxdb-encoder.config]
+    [influxdb-encoder-np.config]
     skip_fields = "**all_base** Env IP Index Job Metric"
     database = "cf_np"
     name_prefix = "%{Job}"
     tag_fields = "IP"
     timestamp_precision= "s"
 
-[influxdb-output]
+[influxdb-output-np]
 type = "HttpOutput"
-#message_matcher = "Type == 'CFCollector'"
-#MetronAgent.MetronAgent.forwarder.router__0.logSenderTotalMessagesRead.e92fbe31-f3c2-4266-99c3-56974dcdd029"
-#MetronAgent.MetronAgent.forwarder.dea_logging_agent.logSenderTotalMessagesRead.a70c0311-3ef9-4ae3-98c9-bb5aa802f41c",
-# don't save logsender metrics, there will be one for each app created ie potentially 1000's of these over time.  Plus we don't need them anyway
-#message_matcher = "Type == 'CFCollector' && Fields[Metric] !~ /.*logSenderTotalMessagesRead.*/"
-message_matcher = "Type == 'CFCollector' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*/"
+# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
+message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-np' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*/"
 address = "http://influxdb:8086/write"
 username = "root"
 password = "root"
-encoder = "influxdb-encoder"
+encoder = "influxdb-encoder-np"
 
+# send data to influxdb for persistence
+[influxdb-encoder-prd]
+type = "SandboxEncoder"
+filename = "lua_encoders/schema_influx_write.lua"
+
+    [influxdb-encoder-prd.config]
+    skip_fields = "**all_base** Env IP Index Job Metric"
+    database = "cf_prd"
+    name_prefix = "%{Job}"
+    tag_fields = "IP"
+    timestamp_precision= "s"
+
+[influxdb-output-prd]
+type = "HttpOutput"
+# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
+message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-prd' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*/"
+address = "http://influxdb:8086/write"
+username = "root"
+password = "root"
+encoder = "influxdb-encoder-prd"
 
 [PayloadEncoder]
 append_newlines = false
@@ -119,10 +135,9 @@ encoder = "AlertEncoder"
 [LogOutput2]
 type = "LogOutput"
 #message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.90))'
-#message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20))'
-#cf-np.DEA.66.10-32-120-266.available_memory_ratio 0.66 $(date +%s) | nc localhost 2003
+message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20))'
 #message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[available_memory_ratio] == 0.66'
-message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[IP] == "10-32-120-168"'
+#message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[IP] == "10-32-120-168"'
 encoder = "RstEncoder"
 
 [SlackOutput]
@@ -134,7 +149,7 @@ encoder = "SlackEncoder"
 [hekad]
 base_dir = "/var/cache/hekad"
 maxprocs = 4
-poolsize = 150
+poolsize = 200
 plugin_chansize = 50
 
 ############## examples ###########

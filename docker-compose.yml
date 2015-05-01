@@ -11,7 +11,7 @@ influxdb:
   - /home/mjseid/influx_image/config.toml:/config/config.toml:ro
   - /home/mjseid/influx_image/run.sh:/run.sh:ro 
   environment:
-  - PRE_CREATE_DB=cf_np
+  - PRE_CREATE_DB=cf_np;cf_prd
 heka:
   image: mjseid/heka:v1
   ports: 
