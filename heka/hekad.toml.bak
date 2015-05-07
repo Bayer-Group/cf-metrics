@@ -101,21 +101,12 @@ append_newlines = false
 #     | name:"nats.latency.1m" type:double value:1.429903615714e+12
 #     | name:"timestamp" type:integer value:1429903645
 
-[DEA_filter_np]
+[DEA_filter]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[Metric] == "available_memory_ratio" && Fields[Env] == "cf-np"'
-filename = "lua_filters/dea_alert.lua"
+message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20'
+filename = "lua_filters/dea.lua"
 can_exit = true
 preserve_data = false
-ticker_interval = 120 
-
-[DEA_filter_prd]
-type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[Metric] == "available_memory_ratio" && Fields[Env] == "cf-prd"'
-filename = "lua_filters/dea_alert.lua"
-can_exit = true
-preserve_data = false
-ticker_interval = 120
 
 [CFHealth_filter]
 type = "SandboxFilter"
@@ -138,21 +129,21 @@ filename = "lua_encoders/slack.lua"
   channel = "#hekatesting"
 
 [LogOutput]
-message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd || Logger == "CFHealth_filter"' 
-#encoder = "AlertEncoder"
-encoder = "RstEncoder"
+message_matcher = 'Logger == "DEA_filter" || Logger == "CFHealth_filter"' 
+encoder = "AlertEncoder"
 
-#[LogOutput2]
-#type = "LogOutput"
-#message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.50))'
-#message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20))'
+[LogOutput2]
+type = "LogOutput"
+#message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.90))'
+message_matcher = 'Type == "CFCollector" && (Fields[healthy] != 1.0 || (Fields[Job] == "DEA" && Fields[available_memory_ratio] < 0.20))'
 #message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[available_memory_ratio] == 0.66'
 #message_matcher = 'Type == "CFCollector" && Fields[Job] == "DEA" && Fields[Metric] == "available_memory_ratio" && Fields[IP] == "10-32-120-168"'
-#encoder = "RstEncoder"
+encoder = "RstEncoder"
 
 [SlackOutput]
 type = "HttpOutput"
-message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd || Logger == "CFHealth_filter"' 
+#message_matcher = 'Logger == "DEA_filter" || Logger == "CFHealth_filter"' 
+message_matcher = 'Logger == "CFHealth_filter"' 
 address = "https://hooks.slack.com/services/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"
 encoder = "SlackEncoder"
 
