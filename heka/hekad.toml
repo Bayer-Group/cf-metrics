@@ -138,7 +138,7 @@ filename = "lua_encoders/slack.lua"
   channel = "#hekatesting"
 
 [LogOutput]
-message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd || Logger == "CFHealth_filter"' 
+message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd" || Logger == "CFHealth_filter"' 
 #encoder = "AlertEncoder"
 encoder = "RstEncoder"
 
@@ -152,7 +152,7 @@ encoder = "RstEncoder"
 
 [SlackOutput]
 type = "HttpOutput"
-message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd || Logger == "CFHealth_filter"' 
+message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd" || Logger == "CFHealth_filter"' 
 address = "https://hooks.slack.com/services/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"
 encoder = "SlackEncoder"
 
