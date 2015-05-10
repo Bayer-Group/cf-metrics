@@ -8,7 +8,7 @@ function process_message ()
     if env == nil then
         env = "Cloud"
     end
-    out_message = string.format("<!channel>\n A component of %s is no longer healthy\n <http://stlucfutilprd01.monsanto.com:3000/dashboard/db/component-health-nonprod|Grafana NP Health>",env)
+    out_message = string.format("<!channel>\n A component of %s is no longer healthy\n <http://stlucfutilprd01.monsanto.com:3000/dashboard/db/component-health-prod|Grafana Prod Health>",env)
     ts = read_message("Timestamp")
     -- 15 minutes
     alert.set_throttle(9e11)

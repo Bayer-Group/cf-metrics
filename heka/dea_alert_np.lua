@@ -24,7 +24,7 @@ end
 
 function timer_event(ns)
     if above_threshold < 1 and total > 1 then
-       local out_message = string.format("No DEA's in %s have more than 20%% memory",env)
+       local out_message = string.format("<!channel>\nNo DEA's in %s have more than 20%% memory\n <http://stlucfutilprd01.monsanto.com:3000/dashboard/db/dea-stats-nonprod|Grafana NP DEA Stats>",env)
        alert.set_throttle(9e11)
        alert.send(ns, out_message)
     end  

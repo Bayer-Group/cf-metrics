@@ -104,7 +104,7 @@ append_newlines = false
 [DEA_filter_np]
 type = "SandboxFilter"
 message_matcher = 'Type == "CFCollector" && Fields[Metric] == "available_memory_ratio" && Fields[Env] == "cf-np"'
-filename = "lua_filters/dea_alert.lua"
+filename = "lua_filters/dea_alert_np.lua"
 can_exit = true
 preserve_data = false
 ticker_interval = 120 
@@ -112,15 +112,22 @@ ticker_interval = 120
 [DEA_filter_prd]
 type = "SandboxFilter"
 message_matcher = 'Type == "CFCollector" && Fields[Metric] == "available_memory_ratio" && Fields[Env] == "cf-prd"'
-filename = "lua_filters/dea_alert.lua"
+filename = "lua_filters/dea_alert_prd.lua"
 can_exit = true
 preserve_data = false
 ticker_interval = 120
 
-[CFHealth_filter]
+[CFHealth_filter_np]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[healthy] != 1.0'
-filename = "lua_filters/jobhealth.lua"
+message_matcher = 'Type == "CFCollector" && Fields[healthy] != 1.0 && Fields[Env] == "cf-np"'
+filename = "lua_filters/health_alert_np.lua"
+can_exit = true
+preserve_data = false
+
+[CFHealth_filter_prd]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFCollector" && Fields[healthy] != 1.0 && Fields[Env] == "cf-prd"'
+filename = "lua_filters/health_alert_prd.lua"
 can_exit = true
 preserve_data = false
 
@@ -134,8 +141,8 @@ filename = "lua_encoders/slack.lua"
 
   [SlackEncoder.config]
   username = "heka-bot"
-#  channel = "#cloudfoundry"
-  channel = "#hekatesting"
+  channel = "#cloudfoundry"
+#  channel = "#hekatesting"
 
 [LogOutput]
 message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd" || Logger == "CFHealth_filter"' 
@@ -152,7 +159,7 @@ encoder = "RstEncoder"
 
 [SlackOutput]
 type = "HttpOutput"
-message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd" || Logger == "CFHealth_filter"' 
+message_matcher = 'Logger == "DEA_filter_np" || Logger == "DEA_filter_prd" || Logger == "CFHealth_filter_np" || Logger == "CFHealth_filter_prd"' 
 address = "https://hooks.slack.com/services/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"
 encoder = "SlackEncoder"
 

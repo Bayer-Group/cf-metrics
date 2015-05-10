@@ -28,8 +28,6 @@ function timer_event(ns)
        alert.set_throttle(9e11)
        alert.send(ns, out_message)
     end  
-    --inject_payload("txt", "", 
-    --      string.format("%d messages above threshold in the last 15 minutes; total=%d", above_threshold, total))
     total=0
     above_threshold=0
 end

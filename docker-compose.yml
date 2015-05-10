@@ -20,9 +20,10 @@ heka:
   volumes:
   - /cf-metrics/heka/hekad.toml:/etc/hekad/hekad.toml:ro
   - /cf-metrics/heka/slack.lua:/usr/share/heka/lua_encoders/slack.lua:ro
-  - /cf-metrics/heka/dea.lua:/usr/share/heka/lua_filters/dea.lua:ro
-  - /cf-metrics/heka/dea_alert.lua:/usr/share/heka/lua_filters/dea_alert.lua:ro
-  - /cf-metrics/heka/jobhealth.lua:/usr/share/heka/lua_filters/jobhealth.lua:ro
+  - /cf-metrics/heka/dea_alert_prd.lua:/usr/share/heka/lua_filters/dea_alert_prd.lua:ro
+  - /cf-metrics/heka/dea_alert_np.lua:/usr/share/heka/lua_filters/dea_alert_np.lua:ro
+  - /cf-metrics/heka/health_alert_np.lua:/usr/share/heka/lua_filters/health_alert_np.lua:ro
+  - /cf-metrics/heka/health_alert_prd.lua:/usr/share/heka/lua_filters/health_alert_prd.lua:ro
   - /cf-metrics/heka/schema_influx_write.lua:/usr/share/heka/lua_encoders/schema_influx_write.lua:ro
   - /cf-metrics/heka/msg_interpolate.lua:/usr/share/heka/lua_modules/msg_interpolate.lua:ro
   links:
