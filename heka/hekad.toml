@@ -141,7 +141,7 @@ filename = "lua_encoders/slack.lua"
 
   [SlackEncoder.config]
   username = "heka-bot"
-  channel = "#cloudfoundry"
+  channel = "#cloudfoundry-ops"
 #  channel = "#hekatesting"
 
 [LogOutput]
