@@ -22,7 +22,7 @@ function trnslt_anomaly_config(pl,mon_cfg,win,hwin )
    for k in pairs(t_anomcfg)
      do
        local a_fld = t_anomcfg[k] or ''
-       ky = string.lower(k)
+       ky = string.lower(k) 
     
        if ky == 'spikes' then
          anon_str = 'roc("' .. payl .. '",' .. a_fld .. ','.. win .. ',' .. hwin ..',2,false,true)'
