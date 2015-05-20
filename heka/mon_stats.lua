@@ -35,9 +35,9 @@ Config:
     Anomaly detection configuration.
     <anomaly_type> : <col>
     anomaly_type are as follows
-    'spikes': random spikes in data stream - uses ROC algorithm
-    'slowchanges': slower changes in data in any directions - uses mww
-    'creepingchanges': really slow changes in data - uses mww_nonparametric
+    'spike': random spikes in data stream - uses ROC algorithm
+    'slowchange': slower changes in data in any directions - uses mww
+    'creepingchange': really slow changes in data - uses mww_nonparametric
     'breakdown' : detects a failure in the data stream ie alerts if data stopped comming in
     'breakout' : dectects breakouts in data (TODO: port twitter' breakout algo)
   
@@ -90,6 +90,8 @@ _PRESERVATION_VERSION = read_config("preservation_version") or 0
 require("circular_buffer")
 require("string")
 require("mon_anomaly_w")
+local lpeg = require("lpeg")
+
 local alert = require "alert"
 local annotation = require "annotation"
 local anomaly = require "anomaly"
@@ -102,19 +104,39 @@ local stat_labels_config = read_config("stat_labels") or error("stat_labels conf
 local stat_aggregation   = read_config("stat_aggregation") or "sum"
 local stat_unit          = read_config("stat_unit") or "count"
 
---[[temp code
+local anomaly_config = read_config("anomaly_config")
+local mon_anomaly_config = read_config("mon_anomaly_config")
+local anom_str = ''
+local anomaly_cfg = ''
+
+--[[ ****to be deleted***
+local mon_win = read_config("anomaly_window") or 10
+local mon_hwin = read_config("anomaly_hist_window") or 0
+--]]
+local throttle_to = read_config("throttle_threshold") or 10
+
+--[[ temp code
 local anom_str_d = read_config("anomaly_config")
 --local anomaly_config = anomaly.parse_config(anom_str_d)
 alert.send(0,anom_str_d)
 --]]
 
-local mon_anom_cfg = read_config("mon_anomaly_config")
-local anom_str = trnslt_anomaly_config(title,mon_anom_cfg,5,10)
---alert.send(0,anom_str)
-local anomaly_config = anomaly.parse_config(anom_str)
+-- ** TODO - Fix Alert Module
+--alert.set_throttle = throttle_to * 1e9
 
-
-
+if not mon_anomaly_config and not anomaly_config then
+   anomaly_cfg = nil
+else   
+   if mon_anomaly_config and not anomaly_config then 
+      -- if only monsanto anomaly config is set
+      anom_str = trnslt_anomaly_config(title,mon_anomaly_config)
+   elseif (not mon_anomaly_config and anomaly_config) or (mon_anomaly_config and anomaly_config) then
+     -- either monsanto config is not set or both are set, take heka config 
+      anom_str = anomaly_config
+   end   
+   anomaly_cfg = anomaly.parse_config(anom_str)
+end
+ 
 annotation.set_prune(title, rows * sec_per_row * 1e9)
 
 local stats = {}
@@ -157,13 +179,10 @@ function process_message()
     return 0
 end
 
-
 function timer_event(ns)
- 
-      
-     if anomaly_config then
+    if anomaly_cfg then
         if not alert.throttled(ns) then
-            local msg, annos = anomaly.detect(ns, title, cbuf, anomaly_config)
+            local msg, annos = anomaly.detect(ns, title, cbuf, anomaly_cfg)
             if msg then
                 annotation.concat(title, annos)
                 alert.send(ns, msg)
