@@ -116,6 +116,7 @@ VM dashboards provide VM level statistics from Bosh Monitor to show things like 
 ![](images/bosh_stats.png)
 
 Enabled alerts from heka (such as DEA memory and bosh deploy's) will go to your slack channel for team notification.  You can also modify the heka configuration to send alerts to an email address if you prefer.
+
 <img src=images/slack.png width=500 height=600 />
 
 ## What about the firehose?
