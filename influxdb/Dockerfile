@@ -1,7 +1,7 @@
 FROM ubuntu:trusty 
 MAINTAINER mjseid@monsanto.com 
 
-ENV INFLUXDB_VERSION 0.9.2.1
+ENV INFLUXDB_VERSION 0.9.4.2
 
 RUN apt-get update && apt-get install -y curl openssh-client 
 

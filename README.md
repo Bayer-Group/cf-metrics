@@ -26,7 +26,7 @@ CF collector and bosh monitor gather /varz and /healthz metrics from all cf jobs
 To run the project, you will need the following:
 
 1.  A working bosh/cloud-foundry enviornment
-2.  A docker host with [docker](https://docs.docker.com/installation/ubuntulinux/) and [docker compose](https://docs.docker.com/compose/#installation-and-set-up) installed and configured.  This project has been tested with docker v1.7.1 and docker-compose v1.3.3
+2.  A docker host with [docker](https://docs.docker.com/installation/ubuntulinux/) and [docker compose](https://docs.docker.com/compose/#installation-and-set-up) installed and configured.  This project has been tested with docker v1.8.3 and docker-compose v1.4.2
 
 ### Docker Host and Container Configuration 
 First clone this repo to the docker host and change the following files to reflect your enviornment:
@@ -35,7 +35,7 @@ First clone this repo to the docker host and change the following files to refle
 cf-metrics->docker-compose.yml: update this list to reflect the names of your cf enviornment(s) yml parameter for "deployment name"
 ```
   environment:
-  - PRE_CREATE_DB=cf_sbx;cf_cnb;bosh_sbx;bosh_cnb  
+  - PRE_CREATE_DB=cf_np;cf_prd;bosh_np;bosh_prd  
 ```
 #### Heka Configuration
 cf-metrics->heka->heka.toml: update the following sections to reflect your enviornment(s) based on the comments in the file.  Or comment them out if you don't any of the specific alerts
@@ -48,7 +48,6 @@ cf-metrics->heka->heka.toml: update the following sections to reflect your envio
  [Bosh_Swap_NP]
  [SlackOutput]
  [SlackEncoder.config]
- [SlackOutput]
  [influxdb-output-bosh-alerts-prd]
  [influxdb-output-bosh-alerts-np]
  [influxdb-output-cf-np]
@@ -56,6 +55,12 @@ cf-metrics->heka->heka.toml: update the following sections to reflect your envio
  [influxdb-output-bosh-np]
  [influxdb-output-bosh-prd]
 ```
+
+cf-metrics->heka->lua_filters->``*_alert*``.lua: If you are using the built in lua filter alerts, you will have to update the url in the lua code to point to the fqdn of your docker host
+```
+  local out_message = string.format("<!channel>\nNo DEA's in %s have more than 10%% memory\n <http://dockerserver.company.com:3000/dashboard/db/dea-stats-nonprod|Grafana NP DEA Stats>",env)
+```
+
 
 #### Grafana Configuration
 cf-metrics->grafana->grafana.ini: update the following section to reflect the fqdn of your docker host:
@@ -71,8 +76,6 @@ In the top level of the project directory, use the following command to create t
 ```
 
 ### BOSH & Cloud Foundry Setup
-_*** You will need to use bosh version >= v171 to have the consul_forwarder bosh monitor plugin.  This plugin is used for bosh deploy event annotations.  If you are using a bosh version prior to v171, leave out the consul_event_forwarder configuration and you will get everything except bosh deploy annoations.***_
-
 _*** Bosh/CF will complain if you configure an endpoint which is not currently listening for connections.  Make sure you have the heka container running and listening on the configured ports before you update your bosh and cf deployments***_
 
 Update the following section in your bosh manifest and redeploy bosh to enable the bosh monitor statistics:
@@ -80,7 +83,7 @@ Update the following section in your bosh manifest and redeploy bosh to enable t
 graphite_enabled: true
     graphite:
       address: <ip of your docker host>
-      port: 8004
+      port: 2004
       prefix: bosh-prod
     consul_event_forwarder_enabled: true
     consul_event_forwarder:
@@ -94,10 +97,10 @@ graphite_enabled: true
 Update the following section in your cloud foundry manifest and redeploy cf to enable cf job statistics:
 ```
 collector:
-    deployment_name: cf-prod  #name of your cf environment
+    deployment_name: cf-prd  #name of your cf environment
     graphite:
       address: <ip address of your docker host>
-      port: 8003
+      port: 2003
     use_graphite: true
 ```
 ## Usage
@@ -116,7 +119,6 @@ VM dashboards provide VM level statistics from Bosh Monitor to show things like 
 ![](images/bosh_stats.png)
 
 Enabled alerts from heka (such as DEA memory and bosh deploy's) will go to your slack channel for team notification.  You can also modify the heka configuration to send alerts to an email address if you prefer.
-
 <img src=images/slack.png width=500 height=600 />
 
 ## What about the firehose?

@@ -6,7 +6,6 @@ influxdb:
   - "8086:8086"
   environment:
   - PRE_CREATE_DB=cf_np;cf_prd;bosh_np;bosh_prd
-  #command: /opt/influxdb/influxd restore -config /etc/opt/influxdb/influxdb.config /data/mybak 
 heka:
   build: ./heka
   ports: 
@@ -20,7 +19,7 @@ heka:
   links:
   - influxdb
 grafana:
-  build: ./grafana
+  image: grafana/grafana:latest 
   ports:
   - "3000:3000"
   volumes:
