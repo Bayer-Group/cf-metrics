@@ -1,6 +1,6 @@
 #!/bin/bash
 set -m
-CONFIG_FILE="/etc/opt/influxdb/influxdb.config"
+CONFIG_FILE="/etc/influxdb/influxdb.config"
 
 if [ "${PRE_CREATE_DB}" == "**None**" ]; then
     unset PRE_CREATE_DB
@@ -15,7 +15,7 @@ if [ -n "${PRE_CREATE_DB}" ]; then
         echo "=> Database had been created before, skipping ..."
     else
         echo "=> Starting InfluxDB ..."
-        exec /opt/influxdb/influxd -config=${CONFIG_FILE} &
+        exec /usr/bin/influxd -config=${CONFIG_FILE} &
         PASS=${INFLUXDB_INIT_PWD:-root}
         arr=$(echo ${PRE_CREATE_DB} | tr ";" "\n")
 
@@ -32,12 +32,16 @@ if [ -n "${PRE_CREATE_DB}" ]; then
         for x in $arr
         do
             echo "=> Creating database: ${x}"
-            curl -G 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=CREATE DATABASE ${x}"
+            curl -i -XPOST 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=CREATE DATABASE ${x}"
+	    #Pre create the cq's for the databases specified for pre-create on the initiation of the container
+	    echo "=> Creating cq for database: ${x}"
+            curl -i -XPOST 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=ALTER RETENTION POLICY default ON ${x} DURATION 14d REPLICATION 1 DEFAULT"
+            curl -G 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=CREATE RETENTION POLICY one_year ON ${x} DURATION 52w REPLICATION 1"
+            curl -G 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=CREATE CONTINUOUS QUERY ${x}_30m ON ${x} BEGIN SELECT mean(value) AS value INTO ${x}.\"one_year\".:MEASUREMENT FROM /.*/ GROUP BY time(30m), * END"
         done
         echo ""
 
-        touch "/data/.pre_db_created"
-        fg
+	fg
         exit 0
     fi
 else
@@ -46,4 +50,4 @@ fi
 
 echo "=> Starting InfluxDB ..."
 
-exec /opt/influxdb/influxd -config=${CONFIG_FILE}
+exec /usr/bin/influxd -config=${CONFIG_FILE}

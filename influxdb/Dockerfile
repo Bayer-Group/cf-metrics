@@ -1,7 +1,7 @@
 FROM ubuntu:trusty 
-MAINTAINER mjseid@monsanto.com 
+MAINTAINER Mark Seidenstricker <@mjseid>
 
-ENV INFLUXDB_VERSION 0.9.4.2
+ENV INFLUXDB_VERSION 0.13.0
 
 RUN apt-get update && apt-get install -y curl openssh-client 
 
@@ -10,7 +10,7 @@ RUN curl -s -o /tmp/influxdb_latest_amd64.deb https://s3.amazonaws.com/influxdb/
   rm /tmp/influxdb_latest_amd64.deb && \
   rm -rf /var/lib/apt/lists/*
 
-ADD influxdb.config /etc/opt/influxdb/influxdb.config
+ADD influxdb.config /etc/influxdb/influxdb.config
 ADD run.sh /run.sh
 RUN chmod +x /*.sh
 

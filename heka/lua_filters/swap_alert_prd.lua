@@ -12,9 +12,9 @@ function process_message ()
     if env == nil then
         env = "Cloud" 
     end
-    local out_message = string.format("<!channel>\nVM's in %s are utilizing more than 10%% swap\n <http://dockerserver.company.com:3000/dashboard/db/vm-level-stats-prod|Grafana Prod VM Stats>",env)
+    local out_message = string.format("\nVM's in %s are utilizing more than 25%% swap\n <http://grafana-cfmetrics.company.com/dashboard/file/vm-level-stats-prd.json|Grafana Prod VM Stats>",env)
     ts = read_message("Timestamp")
-    alert.set_throttle(9e11)
+    alert.set_throttle(4e12)
     alert.send(ts, out_message)
     return 0
 end

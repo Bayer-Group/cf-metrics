@@ -4,22 +4,7 @@ type = "DashboardOutput"
 address = ":4352"
 ticker_interval = 15
 
-# Enable Sandbox Manager to load/unload filters
-[CloudOpsSandboxManager]
-type = "SandboxManagerFilter"
-message_signer = "CloudOps"
-message_matcher = "Type == 'heka.control.sandbox'"
-working_directory = "sandbox"
-max_filters = 100
-
 ############ Inputs ######################
-# listen on port 2003 for cf collector data coming from cloudfoundry in graphite format
-[tcp:2003]
-type = "TcpInput"
-splitter = "TokenSplitter"
-decoder = "cf-collector-graphite-decoder"
-address = ":2003"
-
 # listen on port 2004 for bosh monitor data coming from cloudfoundry in graphite format
 [tcp:2004]
 type = "TcpInput"
@@ -27,25 +12,80 @@ splitter = "TokenSplitter"
 decoder = "bosh-hm-graphite-decoder"
 address = ":2004"
 
-# listen for heka control message for sandboxmanager
-[tcp:5565]
-type = "TcpInput"
-splitter = "acl_splitter" 
-decoder = "ProtobufDecoder"
-address = ":5565"
-
-[acl_splitter]
-type = "HekaFramingSplitter"
-        [acl_splitter.signer.CloudOps_0]
-        hmac_key = "key"
-
 # listen on port 8500 for bosh alert messages from bosh monitor consul plugin
 [bosh-consul]
 type = "HttpListenInput"
 address = ":8500"
 decoder = "bosh-alert-decoder"
 
+# listen on port 2010 for cf firehose data
+[cf-influx-firehose]
+type = "HttpListenInput"
+address = ":2010"
+decoder = "influx-decoder"
+splitter = "influx-splitter"
+
+[influx-splitter]
+type= "RegexSplitter"
+delimiter='\n'
+delimiter_eol = true
+
 ########### Decoders ##################
+# The firehose nozzle emits metrics in two formats, try one then the other
+[influx-decoder]
+type = "MultiDecoder"
+subs = ['influx-metric-decoder', 'influx-stats-decoder']
+cascade_strategy = "first-wins"
+log_sub_errors = false
+
+# decoder for firehoze nozzle metrics
+[influx-metric-decoder]
+type = "MultiDecoder"
+subs = ['influx-metric-regex-decoder', 'StatsToFieldsDecoder']
+cascade_strategy = "all"
+log_sub_errors = false
+
+# decoder for firehose nozzle internal statistics (slowconsumer, total messages recieved, etc)
+[influx-stats-decoder]
+type = "MultiDecoder"
+subs = ['influx-stats-regex-decoder', 'StatsToFieldsDecoder']
+cascade_strategy = "all"
+log_sub_errors = true
+
+# extract the fields out of each individual influx metrics series.  This does lead to loss of data points when a metric is posted with multiple points (ex below).  In this scenario we only use the first data point, which is sufficent for our purposes and still results in a sample set of <=30 second granularity.
+# dea_logging_agent.numGoRoutines,deployment=cf-sbx,job=runner_z2,index=1,ip=10.0.0.6 value=20,value=20 1460055275 
+[influx-metric-regex-decoder]
+type = "PayloadRegexDecoder"
+match_regex = '(?P<Metric>^.+?),deployment=(?P<Env>.+?),job=(?P<Job>.+?),index=(?P<Index>.+?),ip=(?P<IP>.+?)[ ]value=(?P<Value>[^,]+).*[ ](?P<Tstamp>.+?)$'
+timestamp_layout = "Epoch"
+
+    [influx-metric-regex-decoder.message_fields]
+    Type = "CFFirehose"
+    Env = "%Env%"
+    Job = "%Job%"
+    Index = "%Index%"
+    IP = "%IP%"
+    Metric = "%Metric%"
+    Value = "%Value%"
+    Tstamp = "%Tstamp%"
+    Payload = "%Metric% %Value% %Tstamp%"
+
+# extract the fields out of each individual influx metrics series.  This does lead to loss of data points when a metric is posted with multiple points (ex below).  In this scenario we only use the first data point, which is sufficent for our purposes and still results in a sample set of <=30 second granularity.
+# slowConsumerAlert,ip=10.0.0.6,deployment=cf-sbx value=0 1460061350
+[influx-stats-regex-decoder]
+type = "PayloadRegexDecoder"
+match_regex = '(?P<Metric>^.+?),ip=(?P<IP>.+?),deployment=(?P<Env>.+?)[ ]value=(?P<Value>[^,]+).*[ ](?P<Tstamp>.+?)$'
+timestamp_layout = "Epoch"
+
+    [influx-stats-regex-decoder.message_fields]
+    Type = "CFFirehose"
+    Env = "%Env%"
+    IP = "%IP%"
+    Metric = "%Metric%"
+    Value = "%Value%"
+    Tstamp = "%Tstamp%"
+    Payload = "%Metric% %Value% %Tstamp%"
+
 # decode incoming alerts from bosh monitor consul plugin
 [bosh-alert-decoder]
 type = "PayloadRegexDecoder"
@@ -59,31 +99,6 @@ timestamp_layout = "Epoch"
     Summary = "%Summary%"
     Tstamp = "%Timestamp%"
 
-# decode incoming metrics from cf collector input.  Send to multi decoder so we can grab the metric as a double vs a char
-[cf-collector-graphite-decoder]
-type = "MultiDecoder"
-subs = ['cf-collector-regex', 'StatsToFieldsDecoder']
-cascade_strategy = "all"
-log_sub_errors = true
-
-[cf-collector-regex]
-type = "PayloadRegexDecoder"
-#  nifty go regex tester https://regoio.herokuapp.com/
-# cf-np.DEA.0.10-1-2-3.available_memory_ratio 1.0 1428091803
-# test with something like the following:  echo cf-sbx.etcd.0.10-32-120-134.healthy 1.0 $(date +%s) | nc localhost 2003
-#match_regex = '^(?P<Env>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<IP>[^.]+)[.](?P<Metric>\S+) (?P<Value>\S+) (?P<Timestamp>\d+)\s*$'
-match_regex = '^(?P<Env>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<IP>[^.]+)[.](?P<Payload>(?P<Metric>\S+) .*)\s*$'
-timestamp_layout = "Epoch"
-
-    [cf-collector-regex.message_fields]
-    Type = "CFCollector"
-    Env = "%Env%"
-    Job = "%Job%"
-    Index = "%Index%"
-    IP = "%IP%"
-    Payload = "%Payload%"
-    Metric = "%Metric%"
-
 # decode incoming metrics from bosh healthmanager input.  send to multi decoder so we can grab the metric as a double vs a char 
 [bosh-hm-graphite-decoder]
 type = "MultiDecoder"
@@ -93,9 +108,9 @@ log_sub_errors = true
 
 [bosh-hm-regex]
 type = "PayloadRegexDecoder"
-# bosh-sbx.cf_sbx.api_z2.0.f3050428-30b8-4353-955d-97b52ef7ef3c.system_load_1m 0.22 1433369066
-# test with : echo bosh-np.bosh_np.etcd_z1.0.f3050428-30b8-4353-955d-97b52ef7ef3c.system_swap_percent 15 $(date +%s) | nc localhost 2004
-match_regex = '^(?P<Env>[^.]+)[.](?P<Dep>[^.]+)[.](?P<Job>[^.]+)[.](?P<Index>\d+)[.](?P<UUID>[^.]+)[.](?P<Payload>(?P<Metric>\S+) .*)\s*$'
+# bosh_aws_np.cf_aws_np.uaa_z1.17e35946-bcd1-45ce-9dfc-554505cb8ace.54a8d83e-8d6e-4563-a056-fcfd13f57af7.system_load_1m 0.01 1461593654
+# test with : echo bosh_aws_np.cf_aws_np.uaa_z1.17e35946-bcd1-45ce-9dfc-554505cb8ace.54a8d83e-8d6e-4563-a056-fcfd13f57af7.system_load_1m 0.01 $(date +%s) | nc localhost 2004
+match_regex = '^(?P<Env>[^.]+)[.](?P<Dep>[^.]+)[.](?P<Job>[^.]+)[.](?P<Id>[^.]*\S)[.](?P<UUID>[^.]+\S)[.](?P<Payload>(?P<Metric>\S+) .*)\s*$'
 timestamp_layout = "Epoch"
 
     [bosh-hm-regex.message_fields]
@@ -103,7 +118,7 @@ timestamp_layout = "Epoch"
     Env = "%Env%"
     Dep = "%Dep%"
     Job = "%Job%"
-    Index = "%Index%"
+    Id = "%Id%"
     UUID = "%UUID%"
     Payload = "%Payload%"
     Metric = "%Metric%"
@@ -112,6 +127,42 @@ timestamp_layout = "Epoch"
 [StatsToFieldsDecoder]
 
 ############### Filters ########################
+# filter to make sure we are recieving traffic from bosh health monitor
+[recieving-boshhm-filter-np]
+type = "SandboxFilter"
+message_matcher = 'Type == "BoshHM" && Fields[Env] == "bosh-np"'
+filename = "lua_filters/dead_producer_alert_boshhm_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
+# filter to make sure we are recieving traffic from bosh health monitor
+[recieving-boshhm-filter-prd]
+type = "SandboxFilter"
+message_matcher = 'Type == "BoshHM" && Fields[Env] == "bosh-prd"'
+filename = "lua_filters/dead_producer_alert_boshhm_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
+# filter to make sure we are recieving traffic from cf firehose
+[recieving-firehose-filter-np]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Env] == "cf-np"'
+filename = "lua_filters/dead_producer_alert_firehose_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
+# filter to make sure we are recieving traffic from cf firehose
+[recieving-firehose-filter-prd]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Env] == "cf-prd"'
+filename = "lua_filters/dead_producer_alert_firehose_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
 # filter which takes incoming bosh alerts from bosh health monitor consul plugin input and formats for influx output
 [bosh-alert-influx-filter]
 type = "SandboxFilter"
@@ -128,63 +179,130 @@ filename = "lua_filters/bosh_alert_slack.lua"
 can_exit = true
 preserve_data = false
 
-# filter which takes incoming bosh alerts from bosh health monitor consul plugin input and executes a call to sbxmgr to load/unload alerts
-#[bosh-alert-sbxmgr-filter]
-#type = "SandboxFilter"
-#message_matcher = 'Type == "BoshAlert"'
-#filename = "lua_filters/bosh_alert_sbxmgr.lua"
-#can_exit = true
-#preserve_data = false
+# Alert for no dea having space to host the largest possible container (3GB for our enviornment).  Specific per cf environment so that alert throttles are environment specific
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[DEA_Max_Container_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-np"'
+filename = "lua_filters/dea_alert_max_container_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
 
+# Alert for no dea having space to host the largest possible container (3GB for our enviornment).  Specific per cf environment so that alert throttles are environment specific
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[DEA_Max_Container_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-prd"'
+filename = "lua_filters/dea_alert_max_container_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
+
+ 
 # Alert for dea memory.  Specific per cf environment so that alert throttles are environment specific
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [DEA_Avail_Mem_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[Metric] == "available_memory_ratio" && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-np"'
 filename = "lua_filters/dea_alert_avail_mem_np.lua"
 can_exit = true
 preserve_data = false
 ticker_interval = 120
 
 # Alert for dea memory.  Specific per cf environment so that alert throttles are environment specific
-# update the "cf-prd" string to match the deployment name of your cloud foundry environment
-[DEA_Avail_Mem_Prd]
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[DEA_Avail_Mem_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[Metric] == "available_memory_ratio" && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-prd"'
 filename = "lua_filters/dea_alert_avail_mem_prd.lua"
-can_exit = true
+can_exit = true 
 preserve_data = false
 ticker_interval = 120
 
 # Alert for CF job health. Specfic per cf environment so that alert throttles are environment specific
-# Put the following in a file and load/unload via the hekasbxmgr tool using the following commands:
-# heka-sbmgr -action=load -config=CloudOps.toml -script=/usr/share/heka/lua_filters/health_alert_np.lua -scriptconfig=np_health.toml 
-# heka-sbmgr -action=unload -config=CloudOps.toml -filtername=CFHealth_NP
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
-[CFHealth_NP]
+[Job_Health_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[healthy] != 1.0 && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "BoshHM" && Fields[Metric] == "system_healthy" && Fields[Env] == "bosh-np"'
 filename = "lua_filters/health_alert_np.lua"
 can_exit = true
 preserve_data = false
+ticker_interval = 900 
 
 # Alert for CF job health. Specfic per cf environment so that alert throttles are environment specific
-# Put the following in a file and load/unload via the hekasbxmgr tool using the following commands:
-# heka-sbmgr -action=load -config=CloudOps.toml -script=/usr/share/heka/lua_filters/health_alert_prd.lua -scriptconfig=prd_health.toml 
-# heka-sbmgr -action=unload -config=CloudOps.toml -filtername=CFHealth_Prd
-# update the "cf-prd" string to match the deployment name of your cloud foundry environment
-[CFHealth_Prd]
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[Job_Health_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFCollector" && Fields[healthy] != 1.0 && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[Metric] == "system_healthy" && Fields[Env] == "bosh-prd"'
 filename = "lua_filters/health_alert_prd.lua"
 can_exit = true
 preserve_data = false
+ticker_interval = 900
+
+# alert for slow firehose consumer. Specific per environment so that alert throttles are environment specific
+# update the "bosh-np" string to match the deployment name of your cloud foundry environment
+[Firehose_Slow_Consumer_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.slowConsumerAlert" && Fields[Env] == "cf-np"'
+filename = "lua_filters/slow_consumer_alert_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
+
+# alert for slow firehose consumer. Specific per environment so that alert throttles are environment specific
+# update the "bosh-np" string to match the deployment name of your cloud foundry environment
+[Firehose_Slow_Consumer_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.slowConsumerAlert" && Fields[Env] == "cf-prd"'
+filename = "lua_filters/slow_consumer_alert_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
+
+# Alert if cpu wait is larger than 75% Specific per environment so that alert throttles are environment specific
+# update the "bosh-np" string to match the deployment name of your cloud foundry environment
+[Bosh_CPU_Wait_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "BoshHM" && Fields[system_cpu_wait] >= 80.0 && Fields[Env] == "bosh-np"'
+filename = "lua_filters/cpu_wait_alert_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
+# Alert if cpu wait is larger than 75% Specific per environment so that alert throttles are environment specific
+# update the "bosh-np" string to match the deployment name of your cloud foundry environment
+[Bosh_CPU_Wait_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "BoshHM" && Fields[system_cpu_wait] >= 80.0 && Fields[Env] == "bosh-prd"'
+filename = "lua_filters/cpu_wait_alert_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
+# Alert if the ratio of desired to running instances drops below 75%
+[App_Health_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && (Fields[Metric] == "firehose.analyzer.NumberOfDesiredInstances" || Fields[Metric] == "firehose.analyzer.NumberOfRunningInstances") && Fields[Env] == "cf-np"'
+filename = "lua_filters/app_health_alert_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 60
+
+# Alert if the ratio of desired to running instances drops below 75%
+[App_Health_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && (Fields[Metric] == "firehose.analyzer.NumberOfDesiredInstances" || Fields[Metric] == "firehose.analyzer.NumberOfRunningInstances") && Fields[Env] == "cf-prd"'
+filename = "lua_filters/app_health_alert_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 60
 
 # Alert for swap usage on bosh/cf vms.  Specific per environment so that alert throttles are environment specific
 # update the "bosh-prd" string to match the deployment name of your cloud foundry environment
 [Bosh_Swap_Prd]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 10.0 && Fields[Env] == "bosh-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 25.0 && Fields[Env] == "bosh-prd"'
 filename = "lua_filters/swap_alert_prd.lua"
 can_exit = true
 preserve_data = false
@@ -193,65 +311,87 @@ preserve_data = false
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Bosh_Swap_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 10.0 && Fields[Env] == "bosh-np"'
+message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 25.0 && Fields[Env] == "bosh-np"'
 filename = "lua_filters/swap_alert_np.lua"
 can_exit = true
 preserve_data = false
 
-# Filter to batch cf collector message to influx format. Grab for Prod environment 
-[influxdb-filter-cf-prd]
+# Alert for persistent disk usage on bosh/cf vms.  Specific per environment so that alert throttles are environment specific
+# update the "bosh-prd" string to match the deployment name of your cloud foundry environment
+[Bosh_Disk_Notify_Prd]
 type = "SandboxFilter"
-# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
-message_matcher = "Type == 'CFCollector' && Fields[Env] == 'cf-prd' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
-ticker_interval = 60
-filename = "lua_filters/influx_batch.lua"
+message_matcher = 'Type == "BoshHM" && Fields[system_disk_persistent_percent] >= 85.0 && Fields[Env] == "bosh-prd"'
+filename = "lua_filters/persistent_disk_notify_prd.lua"
+can_exit = true
+preserve_data = false
 
-    [influxdb-filter-cf-prd.config]
-    skip_fields = "**all_base** Env IP Index Job Metric timestamp"
-    tag_fields = "Job Index IP"
-    timestamp_precision= "s"
-    flush_count= 100
+# Alert for persistent disk usage on bosh/cf vms.  Specific per environment so that alert throttles are environment specific
+# update the "bosh-np" string to match the deployment name of your cloud foundry environment
+[Bosh_Disk_Notify_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "BoshHM" && Fields[system_disk_persistent_percent] >= 85.0 && Fields[Env] == "bosh-np"'
+filename = "lua_filters/persistent_disk_notify_np.lua"
+can_exit = true
+preserve_data = false
 
-# Filter to batch cf collector message to influx format. Grab for NP environment 
+# Filter to batch cf collector message to influx format. Grab for SBX environment 
 [influxdb-filter-cf-np]
 type = "SandboxFilter"
 # take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
-message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-np' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
+#message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-sbx' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
+message_matcher = "(Type == 'CFCollector' || Type == 'CFFirehose') &&  Fields[Env] == 'cf-np' && Fields[Metric] !~ /etcd.*|.*timestamp.*/"
 ticker_interval = 60
 filename = "lua_filters/influx_batch.lua"
 
     [influxdb-filter-cf-np.config]
-    skip_fields = "**all_base** Env IP Index Job Metric timestamp"
+    skip_fields = "**all_base** Env IP Index Job Metric timestamp Protocol UserAgent ContentType Path Host RemoteAddr api_key Tstamp db Value"
     tag_fields = "Job Index IP"
     timestamp_precision= "s"
-    flush_count= 100
+    flush_count= 200
 
-# Filter to batch bosh HM messages to influx format.  Grab for PRD Environment
-[influxdb-filter-bosh-prd]
+
+# Filter to batch cf collector message to influx format. Grab for SBX environment 
+[influxdb-filter-cf-prd]
 type = "SandboxFilter"
-message_matcher =  "Type == 'BoshHM' && Fields[Env] == 'bosh-prd'"
+# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
+#message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-sbx' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
+message_matcher = "(Type == 'CFCollector' || Type == 'CFFirehose') &&  Fields[Env] == 'cf-prd' && Fields[Metric] !~ /etcd.*|.*timestamp.*/"
 ticker_interval = 60
 filename = "lua_filters/influx_batch.lua"
-    [influxdb-filter-bosh-prd.config]
-    skip_fields = "**all_base** Env Dep UUID Index Job Metric timestamp"
-    tag_fields = "Job Index UUID Dep"
-    timestamp_precision= "s"
-    flush_count=100
 
-# Filter to batch bosh HM messages to influx format.  Grab for NP Environment
+    [influxdb-filter-cf-prd.config]
+    skip_fields = "**all_base** Env IP Index Job Metric timestamp Protocol UserAgent ContentType Path Host RemoteAddr api_key Tstamp db Value"
+    tag_fields = "Job Index IP"
+    timestamp_precision= "s"
+    flush_count= 200
+
+# Filter to batch bosh HM messages to influx format. Grab for NP
 [influxdb-filter-bosh-np]
 type = "SandboxFilter"
 message_matcher =  "Type == 'BoshHM' && Fields[Env] == 'bosh-np'"
 ticker_interval = 60
 filename = "lua_filters/influx_batch.lua"
+
     [influxdb-filter-bosh-np.config]
-    skip_fields = "**all_base** Env Dep UUID Index Job Metric timestamp"
-    tag_fields = "Job Index UUID Dep"
+    skip_fields = "**all_base** Env Dep UUID Id Job Metric"
+    tag_fields = "Job Id UUID Dep"
     timestamp_precision= "s"
-    flush_count=100
+    flush_count=200
+
+# Filter to batch bosh HM messages to influx format. Grab for PRD
+[influxdb-filter-bosh-prd]
+type = "SandboxFilter"
+message_matcher =  "Type == 'BoshHM' && Fields[Env] == 'bosh-prd'"
+ticker_interval = 60
+filename = "lua_filters/influx_batch.lua"
+
+    [influxdb-filter-bosh-prd.config]
+    skip_fields = "**all_base** Env Dep UUID Id Job Metric"
+    tag_fields = "Job Id UUID Dep"
+    timestamp_precision= "s"
+    flush_count=200
 
 ############### Encoders ######################
-# Loads the alert plugin to enable the alert module in heka sandboxes
 [AlertEncoder]
 type = "SandboxEncoder"
 filename = "lua_encoders/alert.lua"
@@ -265,6 +405,7 @@ filename = "lua_encoders/slack.lua"
   [SlackEncoder.config]
   username = "heka-bot"
   channel = "#cloudops"
+  #channel = "#bot-testing"
 
 # Load the Payload Encoder
 [PayloadEncoder]
@@ -276,7 +417,6 @@ filename = "lua_encoders/slack.lua"
 # Log output useful for debugging
 #[LogOutput]
 #message_matcher = "TRUE"
-#message_matcher = 'Logger == "SlackOutput" || Logger == "influxdb-output-cf-cnb" || Logger == "bosh-alert-filter" || Fields[payload_name] == "slack-message"' 
 #encoder = "RstEncoder"
 
 # Sends slack messages from the the slack encoder to the specified slack channel
@@ -284,24 +424,24 @@ filename = "lua_encoders/slack.lua"
 [SlackOutput]
 type = "HttpOutput"
 message_matcher = "Fields[payload_type] == 'alert' || Fields[payload_name] == 'slack-message'"
-address = "https://hooks.slack.com/services/XXXXXXX/XXXXXXXXX/XXXXXXXXXXXXXXXXXXXXXXXX"
+address = "https://hooks.slack.com/services/T031M6L2G/XXXX1234/xxxxxxyyyyyy1111112222222"
 encoder = "SlackEncoder"
 
 # Takes bosh alerts and formats them into influxdb format
 # update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-bosh-alerts-np]
 type = "HttpOutput"
-message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf_np/"
+message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf-np/"
 address = "http://influxdb:8086/write?db=cf_np&rp=default&precision=s"
 username = "root"
 password = "root"
 encoder = "PayloadEncoder"
 
 # Takes bosh alerts and formats them into influxdb format
-# update the "cf_prd" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
+# update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-bosh-alerts-prd]
 type = "HttpOutput"
-message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf_prd/"
+message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf-prd/"
 address = "http://influxdb:8086/write?db=cf_prd&rp=default&precision=s"
 username = "root"
 password = "root"
@@ -311,16 +451,18 @@ encoder = "PayloadEncoder"
 # update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-cf-np]
 type = "HttpOutput"
+# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
 message_matcher = "Logger == 'influxdb-filter-cf-np'"
 address = "http://influxdb:8086/write?db=cf_np&rp=default&precision=s"
 username = "root"
 password = "root"
 encoder = "PayloadEncoder"
 
-# Takes cf collecotr metrics and sends them to influxdb via the influxdb encoder
-# update the "cf_prd" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
+# Takes cf collector metrics and sends them to influxdb via the influxdb encoder
+# update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-cf-prd]
 type = "HttpOutput"
+# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
 message_matcher = "Logger == 'influxdb-filter-cf-prd'"
 address = "http://influxdb:8086/write?db=cf_prd&rp=default&precision=s"
 username = "root"
@@ -338,7 +480,7 @@ password = "root"
 encoder = "PayloadEncoder"
 
 # Takes bosh monitor metrics and sends them to influxdb via the influxdb encoder
-# update the "cf_prd" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
+# update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-bosh-prd]
 type = "HttpOutput"
 message_matcher =  "Logger == 'influxdb-filter-bosh-prd'"
@@ -347,13 +489,10 @@ username = "root"
 password = "root"
 encoder = "PayloadEncoder"
 
-
 ################ General Heka daemon settings ####################
 [hekad]
 base_dir = "/var/cache/hekad"
-maxprocs = 8
+maxprocs = 4
 poolsize = 200
 max_process_inject = 1
-plugin_chansize = 50 
-
-
+plugin_chansize = 50

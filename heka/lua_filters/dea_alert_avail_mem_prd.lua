@@ -3,19 +3,19 @@ require "math"
 local alert = require "alert"
 local above_threshold = 0
 local total = 0 
-local ratio = 3.0
+local freemem = 3.0
 local env = "Cloud"
 
 function process_message ()
-    ratio = read_message("Fields[available_memory_ratio]")
-    if ratio == nil then
-        ratio = 2.0 
+    freemem = read_message("Fields[firehose.DEA.remaining_memory]")
+    if freemem == nil then
+        freemem = 20000 
     end
     env = read_message("Fields[Env]")
     if env == nil then
         env = "Cloud" 
     end
-    if ratio > 0.10 then
+    if freemem > 1536 then
        above_threshold = above_threshold + 1
     end
     total=total + 1
@@ -24,7 +24,7 @@ end
 
 function timer_event(ns)
     if above_threshold < 1 and total > 1 then
-       local out_message = string.format("<!channel>\nNo DEA's in %s have more than 10%% memory\n <http://dockerserver.company.com:3000/dashboard/db/dea-stats-prod|Grafana Prod DEA Stats>",env)
+       local out_message = string.format("<!subteam^S0EA44MLN|gcloudops>\nNo DEA's in %s have more than 1536MB free memory\n <http://grafana-cfmetrics.company.com/dashboard/file/dea-prd.json|Grafana PRD DEA Stats>",env)
        alert.set_throttle(9e11)
        alert.send(ns, out_message)
     end  
