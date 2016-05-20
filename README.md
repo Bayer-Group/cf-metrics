@@ -1,6 +1,8 @@
 #cf-metrics
 A project for monitoring and alerting with cloudfoundry utilizing the [CF collector](https://github.com/cloudfoundry/collector), [Bosh Monitor](https://bosh.io/docs/monitoring.html), [heka](https://github.com/mozilla-services/heka), [influxdb](https://github.com/influxdb/influxdb), and [grafana](https://github.com/grafana/grafana)
 
+***This branch is for consuming metrics from the CF Collector. If you are on cf release which is newer than v232 please use the master branch of this project.***
+
 ## Why
 Monitoring and alerting are critical features for any platform which supports non-trival workloads.  Cloudfoundry provides various components which monitor and track the health of its Key Performance Indicators (KPI's) but for the most part it lacks an out-of-the-box solution which ties all these components together.  There are some existing blog posts ([example](http://blog.pivotal.io/pivotal-cloud-foundry/products/monitoring-pivotal-cloud-foundry-health-and-status-hybrid-models-kpis-and-more)) which provide solutions to this issue, but they tend to rely on closed-source proprietary components.  The goal of this project is to provide a comprehensive solution for CF monitoring and alerting based solely on open source projects.  
 
