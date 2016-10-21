@@ -1,0 +1,17 @@
+{
+  "UAAURL": "https://uaa.cf.domain.com",
+  "Username": "influxdb-firehose-nozzle",
+  "Password": "password",
+  "TrafficControllerURL": "wss://doppler.cf.domain.com:443",
+  "FirehoseSubscriptionID": "influxdb-firehose-nozzle",
+  "InfluxDbUrl": "http://heka:2010",
+  "InfluxDbDatabase": "cloudfoundry",
+  "InfluxDbUser": "root",
+  "InfluxDbPassword": "admin",
+  "FlushDurationSeconds": 15,
+  "SsLSkipVerify": true,
+  "MetricPrefix": "firehose.",
+  "Deployment": "deployment",
+  "DisableAccessControl": false,
+  "IdleTimeoutSeconds" : 60
+}

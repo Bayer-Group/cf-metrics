@@ -2,15 +2,12 @@ FROM ubuntu:trusty
 
 RUN apt-get update && apt-get -y install libfontconfig wget adduser openssl ca-certificates curl supervisor
 
-#RUN wget http://grafanarel.s3.amazonaws.com/builds/grafana_latest_amd64.deb
-RUN wget -O grafana_latest_amd64.deb https://grafanarel.s3.amazonaws.com/builds/grafana_3.0.4-1464167696_amd64.deb 
+RUN wget -O grafana_latest_amd64.deb https://grafanarel.s3.amazonaws.com/builds/grafana_3.1.0-1468321182_amd64.deb 
 RUN dpkg -i grafana_latest_amd64.deb
 
 EXPOSE 3000
 
-VOLUME ["/var/lib/grafana"]
-VOLUME ["/var/log/grafana"]
-VOLUME ["/etc/grafana"]
+VOLUME ["/usr/share/grafana/data"]
 
 WORKDIR /usr/share/grafana
 

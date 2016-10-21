@@ -1,12 +1,39 @@
-FROM ubuntu:trusty
-MAINTAINER Mark Seidenstricker <@mjseid>
+FROM buildpack-deps:jessie-scm
+
+# gcc for cgo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		g++ \
+		gcc \
+		libc6-dev \
+		make \
+		supervisor \
+		curl \
+		ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
+
+ENV BUILD_VERSION 1.0
+ENV GOLANG_VERSION 1.6.3
+ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
+ENV GOLANG_DOWNLOAD_SHA256 cdde5e08530c0579255d6153b08fdb3b8e47caabbe717bc7bcd7561275a87aeb
+
+RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
+	&& echo "$GOLANG_DOWNLOAD_SHA256  golang.tar.gz" | sha256sum -c - \
+	&& tar -C /usr/local -xzf golang.tar.gz \
+	&& rm golang.tar.gz
 
 ENV GOPATH /go
+ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
-ADD influxdb-firehose-nozzle /go/influxdb-firehose-nozzle
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
+WORKDIR $GOPATH
 
-RUN apt-get update && apt-get install -y golang-go ca-certificates curl
+RUN cd /go \
+	&& go get -u -v github.com/mjseid/influxdb-firehose-nozzle \
+	&& cd /go/src/github.com/mjseid/influxdb-firehose-nozzle \
+	&& go build . \
+	&& cp influxdb-firehose-nozzle /go/
 
-VOLUME ["/data"]
+ADD influxdb-firehose-nozzle.json /go/influxdb-firehose-nozzle.json
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-ENTRYPOINT /go/influxdb-firehose-nozzle -config /go/influxdb-firehose-nozzle.json
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

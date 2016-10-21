@@ -40,6 +40,16 @@ cf-metrics->docker-compose.yml: update this list to reflect the names of your cf
   environment:
   - PRE_CREATE_DB=cf_prd;cf_np;bosh_prd;bosh_np  
 ```
+#### Nozzle Configuration
+The firehose nozzle is configured via enviornment variables in the docker-compose.yml.  Variables passed here override the ones built inside the nozzle cotainer via the nozzle json file.  At a minimum, you will want to change these four variables to reference your cf deployment:
+```
+  NOZZLE_UAAURL=https://uaa.cf-np.company.com
+  NOZZLE_PASSWORD=secret
+  NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
+  NOZZLE_DEPLOYMENT=cf_aws_np
+```
+Additional enviornment variable options can be found in the [upstream project](https://github.com/evoila/influxdb-firehose-nozzle)
+
 #### Heka Configuration
 cf-metrics->heka->heka.toml: update the following sections to reflect your enviornment(s) based on the comments in the file.  Or comment them out if you don't want any of the specific alerts
 ```
@@ -49,6 +59,12 @@ cf-metrics->heka->heka.toml: update the following sections to reflect your envio
 [recieving-firehose-filter-prd]
 [bosh-alert-influx-filter]
 [bosh-alert-slack-filter]
+[Cell_Max_Container_NP]
+[Cell_Avail_Mem_NP]
+[Etcd_Leader_NP]
+[Cell_Max_Container_PRD]
+[Cell_Avail_Mem_PRD]
+[Etcd_Leader_PRD]
 [DEA_Max_Container_NP]
 [DEA_Max_Container_PRD]
 [DEA_Avail_Mem_NP]

@@ -39,15 +39,21 @@ grafana:
   restart: always
 nozzlenp: 
   build: ./firehose-nozzle
-  volumes:
-  - ./firehose-nozzle/influxdb-firehose-nozzle-np.json:/go/influxdb-firehose-nozzle.json
+  environment:
+  - NOZZLE_UAAURL=https://uaa.cf-np.company.com
+  - NOZZLE_PASSWORD=secret
+  - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
+  - NOZZLE_DEPLOYMENT=cf_aws_np
   links:
   - heka
   restart: always
 nozzleprd:
   build: ./firehose-nozzle
-  volumes:
-  - ./firehose-nozzle/influxdb-firehose-nozzle-prd.json:/go/influxdb-firehose-nozzle.json
+  environment:
+  - NOZZLE_UAAURL=https://uaa.cf.company.com
+  - NOZZLE_PASSWORD=secret
+  - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf.company.com:443
+  - NOZZLE_DEPLOYMENT=cf_aws_prd
   links:
   - heka
   restart: always

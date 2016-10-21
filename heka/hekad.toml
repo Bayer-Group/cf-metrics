@@ -13,6 +13,7 @@ decoder = "bosh-hm-graphite-decoder"
 address = ":2004"
 
 # listen on port 8500 for bosh alert messages from bosh monitor consul plugin
+# to debug, enable logoutput in the output section and comment out the decoder section here
 [bosh-consul]
 type = "HttpListenInput"
 address = ":8500"
@@ -50,13 +51,13 @@ log_sub_errors = false
 type = "MultiDecoder"
 subs = ['influx-stats-regex-decoder', 'StatsToFieldsDecoder']
 cascade_strategy = "all"
-log_sub_errors = true
+log_sub_errors = false
 
 # extract the fields out of each individual influx metrics series.  This does lead to loss of data points when a metric is posted with multiple points (ex below).  In this scenario we only use the first data point, which is sufficent for our purposes and still results in a sample set of <=30 second granularity.
 # dea_logging_agent.numGoRoutines,deployment=cf-sbx,job=runner_z2,index=1,ip=10.0.0.6 value=20,value=20 1460055275 
 [influx-metric-regex-decoder]
 type = "PayloadRegexDecoder"
-match_regex = '(?P<Metric>^.+?),deployment=(?P<Env>.+?),job=(?P<Job>.+?),index=(?P<Index>.+?),ip=(?P<IP>.+?)[ ]value=(?P<Value>[^,]+).*[ ](?P<Tstamp>.+?)$'
+match_regex = '(?P<Metric>^.+?),deployment=(?P<Env>.+?),index=(?P<Index>.+?),ip=(?P<IP>.+?),job=(?P<Job>.+?)(,protocol=(?P<Protocol>.+?))?[ ]value=(?P<Value>[^,]+).*[ ](?P<Tstamp>.+?)$'
 timestamp_layout = "Epoch"
 
     [influx-metric-regex-decoder.message_fields]
@@ -67,11 +68,13 @@ timestamp_layout = "Epoch"
     IP = "%IP%"
     Metric = "%Metric%"
     Value = "%Value%"
+    Protocol = "%Protocol%"
     Tstamp = "%Tstamp%"
     Payload = "%Metric% %Value% %Tstamp%"
 
 # extract the fields out of each individual influx metrics series.  This does lead to loss of data points when a metric is posted with multiple points (ex below).  In this scenario we only use the first data point, which is sufficent for our purposes and still results in a sample set of <=30 second granularity.
-# slowConsumerAlert,ip=10.0.0.6,deployment=cf-sbx value=0 1460061350
+# firehose.slowConsumerAlert,ip=172.17.0.7,deployment=cf_aws_np value=0 1473878255
+# test with curl -d $'firehose.slowConsumerAlert,ip=172.17.0.7,deployment=cf_aws_np value=0 1473878255\n' http://localhost:2010
 [influx-stats-regex-decoder]
 type = "PayloadRegexDecoder"
 match_regex = '(?P<Metric>^.+?),ip=(?P<IP>.+?),deployment=(?P<Env>.+?)[ ]value=(?P<Value>[^,]+).*[ ](?P<Tstamp>.+?)$'
@@ -87,9 +90,11 @@ timestamp_layout = "Epoch"
     Payload = "%Metric% %Value% %Tstamp%"
 
 # decode incoming alerts from bosh monitor consul plugin
+# {"kind":"alert","id":"90196885-97c2-4bb8-b96d-63612aec9872","severity":4,"title":"director - finish update deployment","summary":"Finish update deployment for 'cf_sbx' against Director '227625a4-1a25-403b-9d2e-fb11c428fce9'","source":"director","created_at":1468534500}
+# {"kind":"alert","id":"1473779697.1132961675@localhost","severity":1,"title":"warden (10.12.16.160) - Does not exist - restart","summary":"process is not running","source":"cf_aws_cnb: runner_z1(67c6f078-dd37-44d2-9b16-aa2525a3a715) [id=a35b3260-f1eb-4491-bdb9-69a7d1945035, index=1, cid=i-2d22e8be]","created_at":1473779697}
 [bosh-alert-decoder]
 type = "PayloadRegexDecoder"
-match_regex = '\{"\w*":"(?P<Kind>.+?)","\w*":"(?P<ID>.+?)","\w*":(?P<Severity>.+?),"\w*":"(?P<Title>.+?)","\w*":"(?P<Summary>.+\'?\'(?P<Env>\w*)\'.+\'?)","\w*":(?P<Source>.+?),"\w*":(?P<Timestamp>.+?)}'
+match_regex = '{"kind":"(?P<Kind>.+?)","id":"(?P<ID>.+?)","severity":(?P<Severity>\d+),"title":"(?P<Title>.+?)","summary":"(?P<Summary>[^\']+(\'(?P<Env>[^\']+)\'.+)?)","source":"(?P<Source>((?P<Deployment>.+)?:)?.+)","created_at":(?P<Timestamp>.+?)}'
 timestamp_layout = "Epoch"
 
     [bosh-alert-decoder.message_fields]
@@ -97,6 +102,8 @@ timestamp_layout = "Epoch"
     Env = "%Env%"
     Title = "%Title%"
     Summary = "%Summary%"
+    Source = "%Source%"
+    Deployment = "%Deployment%"
     Tstamp = "%Timestamp%"
 
 # decode incoming metrics from bosh healthmanager input.  send to multi decoder so we can grab the metric as a double vs a char 
@@ -110,7 +117,7 @@ log_sub_errors = true
 type = "PayloadRegexDecoder"
 # bosh_aws_np.cf_aws_np.uaa_z1.17e35946-bcd1-45ce-9dfc-554505cb8ace.54a8d83e-8d6e-4563-a056-fcfd13f57af7.system_load_1m 0.01 1461593654
 # test with : echo bosh_aws_np.cf_aws_np.uaa_z1.17e35946-bcd1-45ce-9dfc-554505cb8ace.54a8d83e-8d6e-4563-a056-fcfd13f57af7.system_load_1m 0.01 $(date +%s) | nc localhost 2004
-match_regex = '^(?P<Env>[^.]+)[.](?P<Dep>[^.]+)[.](?P<Job>[^.]+)[.](?P<Id>[^.]*\S)[.](?P<UUID>[^.]+\S)[.](?P<Payload>(?P<Metric>\S+) .*)\s*$'
+match_regex = '^(?P<Env>[^.]+)[.](?P<Dep>[^.]+)?[.](?P<Job>[^.]+)?[.](?P<Id>[^.]*\S)?[.](?P<UUID>[^.]+\S)?[.](?P<Payload>(?P<Metric>\S+) .*)\s*$'
 timestamp_layout = "Epoch"
 
     [bosh-hm-regex.message_fields]
@@ -130,7 +137,7 @@ timestamp_layout = "Epoch"
 # filter to make sure we are recieving traffic from bosh health monitor
 [recieving-boshhm-filter-np]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[Env] == "bosh-np"'
+message_matcher = 'Type == "BoshHM" && Fields[Env] =~ /^bosh_.*np.*$/'
 filename = "lua_filters/dead_producer_alert_boshhm_np.lua"
 can_exit = true
 preserve_data = false
@@ -139,7 +146,7 @@ ticker_interval = 300
 # filter to make sure we are recieving traffic from bosh health monitor
 [recieving-boshhm-filter-prd]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[Env] == "bosh-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[Env] =~ /^bosh_.*prd.*$/'
 filename = "lua_filters/dead_producer_alert_boshhm_prd.lua"
 can_exit = true
 preserve_data = false
@@ -148,7 +155,7 @@ ticker_interval = 300
 # filter to make sure we are recieving traffic from cf firehose
 [recieving-firehose-filter-np]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "CFFirehose" && Fields[Env] =~ /^cf_.*np.*$/'
 filename = "lua_filters/dead_producer_alert_firehose_np.lua"
 can_exit = true
 preserve_data = false
@@ -157,7 +164,7 @@ ticker_interval = 300
 # filter to make sure we are recieving traffic from cf firehose
 [recieving-firehose-filter-prd]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "CFFirehose" && Fields[Env] =~ /^cf_.*prd.*$/'
 filename = "lua_filters/dead_producer_alert_firehose_prd.lua"
 can_exit = true
 preserve_data = false
@@ -179,11 +186,20 @@ filename = "lua_filters/bosh_alert_slack.lua"
 can_exit = true
 preserve_data = false
 
+# filter which alerts on bosh re-creating jobs (due to resurrector). Should filter out things triggered during a bosh deploy
+#[bosh-alert-resurrector]
+#type = "SandboxFilter"
+#message_matcher = 'Type == "BoshAlert"'
+#filename = "lua_filters/bosh_resurrector_alert.lua"
+#can_exit = true
+#preserve_data = false
+#ticker_interval = 120
+
 # Alert for no dea having space to host the largest possible container (3GB for our enviornment).  Specific per cf environment so that alert throttles are environment specific
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [DEA_Max_Container_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] =~ /^cf_.*np.*$/'
 filename = "lua_filters/dea_alert_max_container_np.lua"
 can_exit = true
 preserve_data = false
@@ -193,18 +209,17 @@ ticker_interval = 120
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [DEA_Max_Container_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] =~ /^cf_.*prd.*$/'
 filename = "lua_filters/dea_alert_max_container_prd.lua"
 can_exit = true
 preserve_data = false
 ticker_interval = 120
 
- 
 # Alert for dea memory.  Specific per cf environment so that alert throttles are environment specific
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [DEA_Avail_Mem_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] =~ /^cf_.*np.*$/'
 filename = "lua_filters/dea_alert_avail_mem_np.lua"
 can_exit = true
 preserve_data = false
@@ -214,9 +229,49 @@ ticker_interval = 120
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [DEA_Avail_Mem_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.DEA.remaining_memory" && Fields[Env] =~ /^cf_.*prd.*$/'
 filename = "lua_filters/dea_alert_avail_mem_prd.lua"
 can_exit = true 
+preserve_data = false
+ticker_interval = 120
+
+# Alert for no cell having space to host the largest possible container (3GB for our enviornment).  Specific per cf environment so that alert throttles are environment specific
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[Cell_Max_Container_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.rep.CapacityRemainingMemory" && Fields[Env] =~ /^cf_.*np.*$/'
+filename = "lua_filters/cell_alert_max_container_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
+
+# Alert for cell memory.  Specific per cf environment so that alert throttles are environment specific
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[Cell_Avail_Mem_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.rep.CapacityRemainingMemory" && Fields[Env] =~ /^cf_.*np.*$/'
+filename = "lua_filters/cell_alert_avail_mem_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
+
+# Alert for no cell having space to host the largest possible container (3GB for our enviornment).  Specific per cf environment so that alert throttles are environment specific
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[Cell_Max_Container_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.rep.CapacityRemainingMemory" && Fields[Env] =~ /^cf_.*prd.*$/'
+filename = "lua_filters/cell_alert_max_container_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 120
+
+# Alert for cell memory.  Specific per cf environment so that alert throttles are environment specific
+# update the "cf-np" string to match the deployment name of your cloud foundry environment
+[Cell_Avail_Mem_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.rep.CapacityRemainingMemory" && Fields[Env] =~ /^cf_.*prd.*$/'
+filename = "lua_filters/cell_alert_avail_mem_prd.lua"
+can_exit = true
 preserve_data = false
 ticker_interval = 120
 
@@ -224,7 +279,7 @@ ticker_interval = 120
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [Job_Health_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[Metric] == "system_healthy" && Fields[Env] == "bosh-np"'
+message_matcher = 'Type == "BoshHM" && Fields[Metric] == "system_healthy" && Fields[Env] =~ /^bosh_.*np.*$/'
 filename = "lua_filters/health_alert_np.lua"
 can_exit = true
 preserve_data = false
@@ -234,7 +289,7 @@ ticker_interval = 900
 # update the "cf-np" string to match the deployment name of your cloud foundry environment
 [Job_Health_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[Metric] == "system_healthy" && Fields[Env] == "bosh-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[Metric] == "system_healthy" && Fields[Env] =~ /^bosh_.*prd.*$/'
 filename = "lua_filters/health_alert_prd.lua"
 can_exit = true
 preserve_data = false
@@ -244,7 +299,7 @@ ticker_interval = 900
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Firehose_Slow_Consumer_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.slowConsumerAlert" && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.slowConsumerAlert" && Fields[Env] =~ /^cf_.*np.*$/'
 filename = "lua_filters/slow_consumer_alert_np.lua"
 can_exit = true
 preserve_data = false
@@ -254,7 +309,7 @@ ticker_interval = 120
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Firehose_Slow_Consumer_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.slowConsumerAlert" && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "CFFirehose" && Fields[Metric] == "firehose.slowConsumerAlert" && Fields[Env] =~ /^cf_.*prd.*$/'
 filename = "lua_filters/slow_consumer_alert_prd.lua"
 can_exit = true
 preserve_data = false
@@ -264,7 +319,7 @@ ticker_interval = 120
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Bosh_CPU_Wait_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_cpu_wait] >= 80.0 && Fields[Env] == "bosh-np"'
+message_matcher = 'Type == "BoshHM" && Fields[system_cpu_wait] >= 80.0 && Fields[Env] =~ /^bosh_.*np.*$/'
 filename = "lua_filters/cpu_wait_alert_np.lua"
 can_exit = true
 preserve_data = false
@@ -274,7 +329,7 @@ ticker_interval = 300
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Bosh_CPU_Wait_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_cpu_wait] >= 80.0 && Fields[Env] == "bosh-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[system_cpu_wait] >= 80.0 && Fields[Env] =~ /^bosh_.*prd.*$/'
 filename = "lua_filters/cpu_wait_alert_prd.lua"
 can_exit = true
 preserve_data = false
@@ -283,7 +338,7 @@ ticker_interval = 300
 # Alert if the ratio of desired to running instances drops below 75%
 [App_Health_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && (Fields[Metric] == "firehose.analyzer.NumberOfDesiredInstances" || Fields[Metric] == "firehose.analyzer.NumberOfRunningInstances") && Fields[Env] == "cf-np"'
+message_matcher = 'Type == "CFFirehose" && (Fields[Metric] == "firehose.analyzer.NumberOfDesiredInstances" || Fields[Metric] == "firehose.analyzer.NumberOfRunningInstances") && Fields[Env] =~ /^cf_.*np.*$/'
 filename = "lua_filters/app_health_alert_np.lua"
 can_exit = true
 preserve_data = false
@@ -292,7 +347,7 @@ ticker_interval = 60
 # Alert if the ratio of desired to running instances drops below 75%
 [App_Health_PRD]
 type = "SandboxFilter"
-message_matcher = 'Type == "CFFirehose" && (Fields[Metric] == "firehose.analyzer.NumberOfDesiredInstances" || Fields[Metric] == "firehose.analyzer.NumberOfRunningInstances") && Fields[Env] == "cf-prd"'
+message_matcher = 'Type == "CFFirehose" && (Fields[Metric] == "firehose.analyzer.NumberOfDesiredInstances" || Fields[Metric] == "firehose.analyzer.NumberOfRunningInstances") && Fields[Env] =~ /^cf_.*prd.*$/'
 filename = "lua_filters/app_health_alert_prd.lua"
 can_exit = true
 preserve_data = false
@@ -302,7 +357,7 @@ ticker_interval = 60
 # update the "bosh-prd" string to match the deployment name of your cloud foundry environment
 [Bosh_Swap_Prd]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 25.0 && Fields[Env] == "bosh-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 25.0 && Fields[Env] =~ /^bosh_.*prd.*$/'
 filename = "lua_filters/swap_alert_prd.lua"
 can_exit = true
 preserve_data = false
@@ -311,7 +366,7 @@ preserve_data = false
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Bosh_Swap_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 25.0 && Fields[Env] == "bosh-np"'
+message_matcher = 'Type == "BoshHM" && Fields[system_swap_percent] >= 25.0 && Fields[Env] =~ /^bosh_.*np.*$/'
 filename = "lua_filters/swap_alert_np.lua"
 can_exit = true
 preserve_data = false
@@ -320,7 +375,7 @@ preserve_data = false
 # update the "bosh-prd" string to match the deployment name of your cloud foundry environment
 [Bosh_Disk_Notify_Prd]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_disk_persistent_percent] >= 85.0 && Fields[Env] == "bosh-prd"'
+message_matcher = 'Type == "BoshHM" && Fields[system_disk_persistent_percent] >= 85.0 && Fields[Env] =~ /^bosh_.*prd.*$/'
 filename = "lua_filters/persistent_disk_notify_prd.lua"
 can_exit = true
 preserve_data = false
@@ -329,7 +384,7 @@ preserve_data = false
 # update the "bosh-np" string to match the deployment name of your cloud foundry environment
 [Bosh_Disk_Notify_NP]
 type = "SandboxFilter"
-message_matcher = 'Type == "BoshHM" && Fields[system_disk_persistent_percent] >= 85.0 && Fields[Env] == "bosh-np"'
+message_matcher = 'Type == "BoshHM" && Fields[system_disk_persistent_percent] >= 85.0 && Fields[Env] =~ /^bosh_.*np.*$/'
 filename = "lua_filters/persistent_disk_notify_np.lua"
 can_exit = true
 preserve_data = false
@@ -337,9 +392,7 @@ preserve_data = false
 # Filter to batch cf collector message to influx format. Grab for SBX environment 
 [influxdb-filter-cf-np]
 type = "SandboxFilter"
-# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
-#message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-sbx' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
-message_matcher = "(Type == 'CFCollector' || Type == 'CFFirehose') &&  Fields[Env] == 'cf-np' && Fields[Metric] !~ /etcd.*|.*timestamp.*/"
+message_matcher = "(Type == 'CFCollector' || Type == 'CFFirehose') &&  Fields[Env] =~ /cf_.*np.*/ && Fields[Metric] !~ /.*timestamp.*/"
 ticker_interval = 60
 filename = "lua_filters/influx_batch.lua"
 
@@ -347,15 +400,13 @@ filename = "lua_filters/influx_batch.lua"
     skip_fields = "**all_base** Env IP Index Job Metric timestamp Protocol UserAgent ContentType Path Host RemoteAddr api_key Tstamp db Value"
     tag_fields = "Job Index IP"
     timestamp_precision= "s"
-    flush_count= 200
+    flush_count= 150
 
 
 # Filter to batch cf collector message to influx format. Grab for SBX environment 
 [influxdb-filter-cf-prd]
 type = "SandboxFilter"
-# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
-#message_matcher = "Type == 'CFCollector' &&  Fields[Env] == 'cf-sbx' && Fields[Metric] !~ /etcd.*|DopplerServer.*|LoggregatorTrafficcontroller.*|MetronAgent.*|.*timestamp.*/"
-message_matcher = "(Type == 'CFCollector' || Type == 'CFFirehose') &&  Fields[Env] == 'cf-prd' && Fields[Metric] !~ /etcd.*|.*timestamp.*/"
+message_matcher = "(Type == 'CFCollector' || Type == 'CFFirehose') &&  Fields[Env] =~ /^cf_.*prd.*$/ && Fields[Metric] !~ /.*timestamp.*/"
 ticker_interval = 60
 filename = "lua_filters/influx_batch.lua"
 
@@ -363,25 +414,12 @@ filename = "lua_filters/influx_batch.lua"
     skip_fields = "**all_base** Env IP Index Job Metric timestamp Protocol UserAgent ContentType Path Host RemoteAddr api_key Tstamp db Value"
     tag_fields = "Job Index IP"
     timestamp_precision= "s"
-    flush_count= 200
-
-# Filter to batch bosh HM messages to influx format. Grab for NP
-[influxdb-filter-bosh-np]
-type = "SandboxFilter"
-message_matcher =  "Type == 'BoshHM' && Fields[Env] == 'bosh-np'"
-ticker_interval = 60
-filename = "lua_filters/influx_batch.lua"
-
-    [influxdb-filter-bosh-np.config]
-    skip_fields = "**all_base** Env Dep UUID Id Job Metric"
-    tag_fields = "Job Id UUID Dep"
-    timestamp_precision= "s"
-    flush_count=200
+    flush_count= 150
 
 # Filter to batch bosh HM messages to influx format. Grab for PRD
 [influxdb-filter-bosh-prd]
 type = "SandboxFilter"
-message_matcher =  "Type == 'BoshHM' && Fields[Env] == 'bosh-prd'"
+message_matcher =  "Type == 'BoshHM' && Fields[Env] =~ /bosh_.*prd.*$/"
 ticker_interval = 60
 filename = "lua_filters/influx_batch.lua"
 
@@ -389,7 +427,38 @@ filename = "lua_filters/influx_batch.lua"
     skip_fields = "**all_base** Env Dep UUID Id Job Metric"
     tag_fields = "Job Id UUID Dep"
     timestamp_precision= "s"
-    flush_count=200
+    flush_count=150
+
+# Filter to batch bosh HM messages to influx format. Grab for NP
+[influxdb-filter-bosh-np]
+type = "SandboxFilter"
+message_matcher =  "Type == 'BoshHM' && Fields[Env] =~ /bosh_.*np.*$/"
+ticker_interval = 60
+filename = "lua_filters/influx_batch.lua"
+
+    [influxdb-filter-bosh-np.config]
+    skip_fields = "**all_base** Env Dep UUID Id Job Metric"
+    tag_fields = "Job Id UUID Dep"
+    timestamp_precision= "s"
+    flush_count=150
+
+# Alert if there is more than one ETC leader at the same time, indicating a etcd split brain scenario
+[Etcd_Leader_PRD]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields["firehose.etcd.IsLeader"] >= 0.5 && Fields[Env] =~ /^cf_.*prd.*$/'
+filename = "lua_filters/etcd_leader_alert_prd.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
+
+# Alert if there is more than one ETC leader at the same time, indicating a etcd split brain scenario
+[Etcd_Leader_NP]
+type = "SandboxFilter"
+message_matcher = 'Type == "CFFirehose" && Fields["firehose.etcd.IsLeader"] >= 0.5 && Fields[Env] =~ /^cf_.*np.*$/'
+filename = "lua_filters/etcd_leader_alert_np.lua"
+can_exit = true
+preserve_data = false
+ticker_interval = 300
 
 ############### Encoders ######################
 [AlertEncoder]
@@ -417,6 +486,7 @@ filename = "lua_encoders/slack.lua"
 # Log output useful for debugging
 #[LogOutput]
 #message_matcher = "TRUE"
+#message_matcher = "Logger == 'bosh-alert-decoder' || Logger == 'bosh-consul' || Logger == 'cf-influx-firehose' || Logger == 'HttpListenInput'"
 #encoder = "RstEncoder"
 
 # Sends slack messages from the the slack encoder to the specified slack channel
@@ -431,7 +501,7 @@ encoder = "SlackEncoder"
 # update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-bosh-alerts-np]
 type = "HttpOutput"
-message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf-np/"
+message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf_.*np.*/"
 address = "http://influxdb:8086/write?db=cf_np&rp=default&precision=s"
 username = "root"
 password = "root"
@@ -441,7 +511,7 @@ encoder = "PayloadEncoder"
 # update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-bosh-alerts-prd]
 type = "HttpOutput"
-message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf-prd/"
+message_matcher = "Fields[payload_name] == 'bosh-deploy-trigger' && Payload =~ /env=cf_.*prd.*/"
 address = "http://influxdb:8086/write?db=cf_prd&rp=default&precision=s"
 username = "root"
 password = "root"
@@ -451,7 +521,6 @@ encoder = "PayloadEncoder"
 # update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-cf-np]
 type = "HttpOutput"
-# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
 message_matcher = "Logger == 'influxdb-filter-cf-np'"
 address = "http://influxdb:8086/write?db=cf_np&rp=default&precision=s"
 username = "root"
@@ -462,7 +531,6 @@ encoder = "PayloadEncoder"
 # update the "cf_np" string to reflect the deployment name of your deployment.  Use _ rather than - to follow influx best practices.
 [influxdb-output-cf-prd]
 type = "HttpOutput"
-# take out a bunch of metrics we don't care about...this took it from ~500 series to ~130
 message_matcher = "Logger == 'influxdb-filter-cf-prd'"
 address = "http://influxdb:8086/write?db=cf_prd&rp=default&precision=s"
 username = "root"

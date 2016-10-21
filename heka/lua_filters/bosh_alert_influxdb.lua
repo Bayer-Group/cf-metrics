@@ -1,6 +1,4 @@
 require "string"
-local title = "unknown"
-local influx_message = "blah"
 
 function process_message ()
     title = read_message("Fields[Title]")
@@ -14,13 +12,16 @@ function process_message ()
        env = "unknown"
    end
 
+   influx_message="blah"
    if string.find(title, "finish") or string.find(title, "error during update") then
      influx_message = string.format("deploy,status=finish,env=%s value=1.0 %.0f", env, ts)
    elseif string.find(title, "begin") then
      influx_message = string.format("deploy,status=begin,env=%s value=1.0 %.0f", env, ts)
    end
 
-   inject_payload("txt", "bosh-deploy-trigger", influx_message)
-   return 0
+   if influx_message ~= "blah" then
+   	inject_payload("txt", "bosh-deploy-trigger", influx_message)
+   end	  
+ return 0
 end
 
