@@ -1,7 +1,7 @@
 FROM ubuntu:trusty 
 MAINTAINER Mark Seidenstricker <@mjseid>
 
-ENV INFLUXDB_VERSION 0.13.0
+ENV INFLUXDB_VERSION 1.1.1 
 
 RUN apt-get update && apt-get install -y curl openssh-client 
 

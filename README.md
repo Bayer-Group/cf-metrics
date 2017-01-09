@@ -44,7 +44,8 @@ cf-metrics->docker-compose.yml: update this list to reflect the names of your cf
 The firehose nozzle is configured via enviornment variables in the docker-compose.yml.  Variables passed here override the ones built inside the nozzle cotainer via the nozzle json file.  At a minimum, you will want to change these four variables to reference your cf deployment:
 ```
   NOZZLE_UAAURL=https://uaa.cf-np.company.com
-  NOZZLE_PASSWORD=secret
+  NOZZLE_CLIENT=client_id
+  NOZZLE_CLIENT_SECRET=secret
   NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
   NOZZLE_DEPLOYMENT=cf_aws_np
 ```

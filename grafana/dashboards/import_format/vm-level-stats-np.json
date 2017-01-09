@@ -1,42 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_BOSH_NP",
-      "label": "bosh_np",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    },
-    {
-      "name": "DS_CF_NP",
-      "label": "cf_np",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    }
-  ],
-  "__requires": [
-    {
-      "type": "panel",
-      "id": "graph",
-      "name": "Graph",
-      "version": ""
-    },
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "3.1.0"
-    },
-    {
-      "type": "datasource",
-      "id": "influxdb",
-      "name": "InfluxDB",
-      "version": "1.0.0"
-    }
-  ],
   "id": null,
   "title": "VM Level Stats - NP",
   "tags": [
@@ -45,13 +7,67 @@
   "style": "dark",
   "timezone": "browser",
   "editable": true,
+  "graphTooltip": 0,
   "hideControls": false,
-  "sharedCrosshair": false,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "collapse": false,
+    "enable": true,
+    "notice": false,
+    "now": true,
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "status": "Stable",
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ],
+    "type": "timepicker"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": [
+      {
+        "datasource": "cf_np",
+        "enable": true,
+        "iconColor": "#C0C6BE",
+        "iconSize": 15,
+        "lineColor": "rgba(243, 46, 7, 0.59)",
+        "name": "deployment",
+        "query": "select value from deploy where $timeFilter",
+        "showLine": true
+      }
+    ]
+  },
+  "schemaVersion": 14,
+  "version": 0,
+  "links": [],
+  "gnetId": null,
   "rows": [
     {
-      "collapse": false,
-      "editable": true,
-      "height": "250px",
+      "title": "Row",
       "panels": [
         {
           "aliasColors": {},
@@ -60,14 +76,8 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 8,
-          "isNew": true,
           "legend": {
             "avg": false,
             "current": false,
@@ -147,7 +157,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -166,7 +179,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -175,12 +189,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 1,
           "legend": {
             "avg": false,
@@ -260,7 +269,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -277,7 +289,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -286,12 +299,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 2,
           "legend": {
             "avg": false,
@@ -316,46 +324,46 @@
           "steppedLine": false,
           "targets": [
             {
+              "policy": "default",
               "dsType": "influxdb",
+              "resultFormat": "time_series",
+              "tags": [],
               "groupBy": [
                 {
+                  "type": "time",
                   "params": [
                     "$interval"
-                  ],
-                  "type": "time"
+                  ]
                 },
                 {
+                  "type": "tag",
                   "params": [
-                    "null"
-                  ],
-                  "type": "fill"
+                    "Job"
+                  ]
+                },
+                {
+                  "type": "tag",
+                  "params": [
+                    "Id"
+                  ]
                 }
               ],
-              "hide": false,
-              "measurement": "system_cpu_wait",
-              "policy": "default",
-              "query": "SELECT value FROM \"system_cpu_wait\" WHERE $timeFilter GROUP BY Job,Id time($interval) ORDER BY asc",
-              "rawQuery": true,
-              "refId": "A",
-              "resultFormat": "time_series",
               "select": [
                 [
                   {
+                    "type": "field",
                     "params": [
                       "value"
-                    ],
-                    "type": "field"
+                    ]
                   },
                   {
-                    "params": [],
-                    "type": "mean"
+                    "type": "mean",
+                    "params": []
                   }
                 ]
               ],
-              "tags": {
-                "Job": "select tag value"
-              },
-              "target": ""
+              "refId": "A",
+              "measurement": "system_cpu_wait"
             }
           ],
           "timeFrom": null,
@@ -369,7 +377,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -386,7 +397,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -395,12 +407,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 5,
           "legend": {
             "avg": false,
@@ -434,17 +441,23 @@
                   "type": "time"
                 },
                 {
+                  "type": "tag",
                   "params": [
-                    "null"
-                  ],
-                  "type": "fill"
+                    "Job"
+                  ]
+                },
+                {
+                  "type": "tag",
+                  "params": [
+                    "Id"
+                  ]
                 }
               ],
               "hide": false,
               "measurement": "system_load_1m",
               "policy": "default",
               "query": "SELECT value FROM \"system_load_1m\" WHERE $timeFilter GROUP BY Job,Id time($interval) ORDER BY asc",
-              "rawQuery": true,
+              "rawQuery": false,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -476,7 +489,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -493,7 +509,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -502,12 +519,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 4,
           "legend": {
             "avg": false,
@@ -541,17 +553,23 @@
                   "type": "time"
                 },
                 {
+                  "type": "tag",
                   "params": [
-                    "null"
-                  ],
-                  "type": "fill"
+                    "Job"
+                  ]
+                },
+                {
+                  "type": "tag",
+                  "params": [
+                    "Id"
+                  ]
                 }
               ],
               "hide": false,
               "measurement": "system_disk_ephemeral_percent",
               "policy": "default",
               "query": "SELECT value FROM \"system_disk_ephemeral_percent\" WHERE $timeFilter GROUP BY Job,Id time($interval) ORDER BY asc",
-              "rawQuery": true,
+              "rawQuery": false,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -583,7 +601,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -600,7 +621,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -609,12 +631,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 3,
           "legend": {
             "avg": false,
@@ -639,46 +656,46 @@
           "steppedLine": false,
           "targets": [
             {
+              "policy": "default",
               "dsType": "influxdb",
+              "resultFormat": "time_series",
+              "tags": [],
               "groupBy": [
                 {
+                  "type": "time",
                   "params": [
                     "$interval"
-                  ],
-                  "type": "time"
+                  ]
                 },
                 {
+                  "type": "tag",
                   "params": [
-                    "null"
-                  ],
-                  "type": "fill"
+                    "Job"
+                  ]
+                },
+                {
+                  "type": "tag",
+                  "params": [
+                    "Id"
+                  ]
                 }
               ],
-              "hide": false,
-              "measurement": "system_disk_persistent_percent",
-              "policy": "default",
-              "query": "SELECT value FROM \"system_disk_persistent_percent\" WHERE $timeFilter GROUP BY Job,Id time($interval) ORDER BY asc",
-              "rawQuery": true,
-              "refId": "A",
-              "resultFormat": "time_series",
               "select": [
                 [
                   {
+                    "type": "field",
                     "params": [
                       "value"
-                    ],
-                    "type": "field"
+                    ]
                   },
                   {
-                    "params": [],
-                    "type": "mean"
+                    "type": "mean",
+                    "params": []
                   }
                 ]
               ],
-              "tags": {
-                "Job": "select tag value"
-              },
-              "target": ""
+              "refId": "A",
+              "measurement": "system_disk_persistent_percent"
             }
           ],
           "timeFrom": null,
@@ -692,7 +709,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -709,7 +729,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -718,12 +739,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 6,
           "legend": {
             "avg": false,
@@ -757,17 +773,23 @@
                   "type": "time"
                 },
                 {
+                  "type": "tag",
                   "params": [
-                    "null"
-                  ],
-                  "type": "fill"
+                    "Job"
+                  ]
+                },
+                {
+                  "type": "tag",
+                  "params": [
+                    "Id"
+                  ]
                 }
               ],
               "hide": false,
               "measurement": "system_swap_percent",
               "policy": "default",
-              "query": "SELECT value FROM \"system_swap_percent\" WHERE $timeFilter GROUP BY Job,Id time($interval) ORDER BY asc",
-              "rawQuery": true,
+              "query": "SELECT mean(\"value\") FROM \"system_swap_percent\" WHERE $timeFilter GROUP BY time($interval), \"Job\"",
+              "rawQuery": false,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -799,7 +821,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -816,7 +841,8 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         },
         {
           "aliasColors": {},
@@ -825,12 +851,7 @@
           "editable": true,
           "error": false,
           "fill": 0,
-          "grid": {
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
+          "grid": {},
           "id": 7,
           "legend": {
             "avg": false,
@@ -864,17 +885,23 @@
                   "type": "time"
                 },
                 {
+                  "type": "tag",
                   "params": [
-                    "null"
-                  ],
-                  "type": "fill"
+                    "Job"
+                  ]
+                },
+                {
+                  "type": "tag",
+                  "params": [
+                    "Id"
+                  ]
                 }
               ],
               "hide": false,
               "measurement": "system_swap_percent",
               "policy": "default",
               "query": "SELECT value FROM \"system_mem_percent\" WHERE $timeFilter GROUP BY Job,Id time($interval) ORDER BY asc",
-              "rawQuery": true,
+              "rawQuery": false,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -906,7 +933,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "show": true
+            "show": true,
+            "mode": "time",
+            "name": null,
+            "values": []
           },
           "yaxes": [
             {
@@ -923,67 +953,17 @@
               "min": null,
               "show": true
             }
-          ]
+          ],
+          "thresholds": []
         }
       ],
-      "title": "Row"
+      "showTitle": false,
+      "titleSize": "h6",
+      "height": "250px",
+      "repeat": null,
+      "repeatRowId": null,
+      "repeatIteration": null,
+      "collapse": false
     }
-  ],
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  },
-  "timepicker": {
-    "collapse": false,
-    "enable": true,
-    "notice": false,
-    "now": true,
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "status": "Stable",
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ],
-    "type": "timepicker"
-  },
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": [
-      {
-        "datasource": "cf_np",
-        "enable": true,
-        "iconColor": "#C0C6BE",
-        "iconSize": 15,
-        "lineColor": "rgba(243, 46, 7, 0.59)",
-        "name": "deployment",
-        "query": "select value from deploy where $timeFilter",
-        "showLine": true
-      }
-    ]
-  },
-  "schemaVersion": 12,
-  "version": 0,
-  "links": [],
-  "gnetId": null
+  ]
 }
-

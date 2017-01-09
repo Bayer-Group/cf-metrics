@@ -41,19 +41,27 @@ nozzlenp:
   build: ./firehose-nozzle
   environment:
   - NOZZLE_UAAURL=https://uaa.cf-np.company.com
-  - NOZZLE_PASSWORD=secret
+  - NOZZLE_CLIENT=uaa_nozzle_client_id
+  - NOZZLE_CLIENT_SECRET=uaa_nozzle_client_secret
   - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
   - NOZZLE_DEPLOYMENT=cf_aws_np
+  - NOZZLE_EVENT_FILTER=CounterEvent,ValueMetric
+  - NOZZLE_FIREHOSESUBSCRIPTIONID=cf-metrics
+  - NOZZLE_INFLUXDB_URL=http://heka:2010
   links:
   - heka
   restart: always
 nozzleprd:
   build: ./firehose-nozzle
   environment:
-  - NOZZLE_UAAURL=https://uaa.cf.company.com
-  - NOZZLE_PASSWORD=secret
-  - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf.company.com:443
-  - NOZZLE_DEPLOYMENT=cf_aws_prd
+  - NOZZLE_UAAURL=https://uaa.cf-np.company.com
+  - NOZZLE_CLIENT=uaa_nozzle_client_id
+  - NOZZLE_CLIENT_SECRET=uaa_nozzle_client_secret
+  - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
+  - NOZZLE_DEPLOYMENT=cf_aws_np
+  - NOZZLE_EVENT_FILTER=CounterEvent,ValueMetric
+  - NOZZLE_FIREHOSESUBSCRIPTIONID=cf-metrics
+  - NOZZLE_INFLUXDB_URL=http://heka:2010
   links:
   - heka
   restart: always

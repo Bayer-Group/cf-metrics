@@ -32,7 +32,7 @@ if [ -n "${PRE_CREATE_DB}" ]; then
         for x in $arr
         do
             echo "=> Creating database: ${x}"
-            curl -i -XPOST 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=CREATE DATABASE ${x}"
+            curl -G 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=CREATE DATABASE ${x}"
 	    #Pre create the cq's for the databases specified for pre-create on the initiation of the container
 	    echo "=> Creating cq for database: ${x}"
             curl -i -XPOST 'http://localhost:8086/query?u=root&p=root' --data-urlencode "q=ALTER RETENTION POLICY default ON ${x} DURATION 14d REPLICATION 1 DEFAULT"
@@ -41,7 +41,8 @@ if [ -n "${PRE_CREATE_DB}" ]; then
         done
         echo ""
 
-	fg
+        touch "/data/.pre_db_created"
+        fg
         exit 0
     fi
 else
@@ -51,3 +52,4 @@ fi
 echo "=> Starting InfluxDB ..."
 
 exec /usr/bin/influxd -config=${CONFIG_FILE}
+
