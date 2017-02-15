@@ -27,7 +27,12 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 WORKDIR $GOPATH
 
-ADD influxdb-firehose-nozzle /go/influxdb-firehose-nozzle
+RUN cd /go \
+	&& go get -u -v github.com/MonsantoCo/influxdb-firehose-nozzle \
+	&& cd /go/src/github.com/MonsantoCo/influxdb-firehose-nozzle \
+	&& go build . \
+	&& cp influxdb-firehose-nozzle /go/
+
 ADD influxdb-firehose-nozzle.json /go/influxdb-firehose-nozzle.json
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
