@@ -1,5 +1,5 @@
 FROM ubuntu:trusty 
-MAINTAINER mjseid@monsanto.com 
+MAINTAINER mjseid
 
 ENV INFLUXDB_VERSION 1.2.2
 RUN apt-get update && apt-get install -y curl openssh-client awscli 
