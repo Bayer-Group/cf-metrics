@@ -1,0 +1,59 @@
+var slackchannel = '#bot-testing'
+var grafanaurl = 'http://server.company.com:3000/dashboard/file'
+var jenkins = 'jenkins-np'
+var grafanaenv = '?&var-Environment=cf_np'
+var env = 'Non-Prod'
+
+var repmem = stream
+    // Select just the cell mem measurement
+    |from()
+        .measurement('firehose.rep.CapacityRemainingMemory')
+    // eval every minute the past 4 minutes of data
+    |window()
+        .period(4m)
+        .every(1m)
+
+repmem
+    |deadman(1.0, 5m)
+	.stateChangesOnly(15m)
+       	.noRecoveries()
+	.id('Deadman alert for ' + env +' Firehose')
+       	.message('{{ .ID }}')
+	.slack()
+	.channel(slackchannel)
+
+repmem
+    |where(lambda: "job" =~ /cell_z./)
+    // get the max from all the cells who've reported in.
+    |max('value')
+    |alert()
+        // if the max remaining mem for any cell who's reported in the past 3 minutes is less than 3GB, then send the alert
+	.crit(lambda: "max" < 3096)
+        // only alert on state change or every 15 min when state hasn't changed
+        .stateChangesOnly(15m)
+	.noRecoveries()
+        .id('Cell Capacity Alert for {{ index .Tags "deployment" }}')
+        .message('{{ .ID }}
+No Cells in {{ index .Tags "deployment" }} have room for a 3G container.
+<' + grafanaurl +'/cell.json'+ grafanaenv +'|Go to Grafana>')
+        .slack()
+        .channel(slackchannel)
+	.post().endpoint(jenkins)
+
+repmem
+    |where(lambda: "job" =~ /cell_large_z./)
+    // get the max from all the cells who've reported in.
+    |max('value')
+    |alert()
+        // if the max remaining mem for any cell who's reported in the past 3 minutes is less than 9GB, then send the alert
+        .crit(lambda: "max" < 9216)
+        // only alert on state change or every 15 min when state hasn't changed
+        .stateChangesOnly(15m)
+	.noRecoveries()
+        .id('Large Cell Capacity Alert for {{ index .Tags "deployment" }}')
+        .message('{{ .ID }}
+No Large Cells in {{ index .Tags "deployment" }} have room for a 9G container.
+<' + grafanaurl +'/cell.json'+ grafanaenv +'|Go to Grafana>')
+        .slack()
+        .channel(slackchannel)
+	.post().endpoint(jenkins)

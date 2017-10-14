@@ -4,7 +4,7 @@
   "ClientSecret": "password",
   "TrafficControllerURL": "wss://doppler.cf.domain.com:443",
   "FirehoseSubscriptionID": "influxdb-firehose-nozzle",
-  "InfluxDbUrl": "http://heka:2010",
+  "InfluxDbUrl": "http://influxdb:8086",
   "InfluxDbDatabase": "cloudfoundry",
   "InfluxDbUser": "root",
   "InfluxDbPassword": "admin",
@@ -12,7 +12,6 @@
   "SsLSkipVerify": true,
   "MetricPrefix": "firehose.",
   "Deployment": "deployment",
-  "EventFilter": "CounterEvent, ValueMetric",
   "DisableAccessControl": false,
   "IdleTimeoutSeconds" : 60
 }

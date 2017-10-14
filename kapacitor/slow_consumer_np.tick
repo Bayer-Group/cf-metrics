@@ -1,0 +1,17 @@
+//curl -i -XPOST 'http://localhost:8086/write?db=cf_np&precision=s' --data-binary 'firehose.slowConsumerAlert,deployment=cf_np-diego,ip=192.168.1.1 value=1 '`date +%s`''
+
+var env = 'Non-Prod'
+var slackchannel = '#bot-testing'
+var grafanaenv = '?&var-Environment=cf_np'
+
+stream
+    |from()
+        .measurement('firehose.slowConsumerAlert')
+    |alert()
+        .crit(lambda: "value" > 0)
+        .stateChangesOnly(15m)
+        .noRecoveries()
+        .id('Slow Consumer Alert for ' + env + ' Firehose')
+        .message('{{ .ID }}')
+        .slack()
+        .channel(slackchannel)

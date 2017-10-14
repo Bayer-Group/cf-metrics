@@ -1,0 +1,26 @@
+//will need to run this periodically for 15 minutes to test alert
+//curl -i -XPOST 'http://localhost:8086/write?db=cf_np&precision=s' --data-binary 'firehose.bosh-hm-forwarder.system.healthy,deployment=cf_np-diego,job=cell_z1,index=999 value=0 '`date +%s`''
+
+var slackchannel = '#bot-testing'
+var env = 'Non-Prod'
+var grafanaurl = 'http://server.company.com:3000/dashboard/file'
+var grafanaenv = '?&var-Environment=cf_np'
+
+var data = stream
+    |from()
+        .measurement('firehose.bosh-hm-forwarder.system.healthy')
+
+data
+    |groupBy('job', 'index')
+    |stateDuration(lambda: "value" < 1)
+	.unit(3m)
+    |alert()
+        .crit(lambda: "state_duration" >= 5)
+        .stateChangesOnly(15m)
+        .noRecoveries()
+        .id('Job Health Alert for {{ index .Tags "deployment" }}')
+        .message('{{ .ID }}
+Job {{index .Tags "job" }}/{{index .Tags "index" }} in {{index .Tags "deployment" }} not healthy for past 15 minutes
+<' + grafanaurl +'/component-health.json'+ grafanaenv +'|Go to Grafana>')
+        .slack()
+        .channel(slackchannel)

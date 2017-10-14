@@ -1,0 +1,26 @@
+//curl -i -XPOST 'http://localhost:8086/write?db=cf_np&precision=s' --data-binary 'firehose.etcd.IsLeader,deployment=cf_np-diego,ip=192.168.1.1 value=1 '`date +%s`''
+
+var env = 'Non-Prod'
+var slackchannel = '#bot-testing'
+var grafanaurl = 'http://server.company.com:3000/dashboard/file'
+var grafanaenv = '?&var-Environment=cf_np'
+
+stream
+    |from()
+        .measurement('firehose.etcd.IsLeader')
+    |window()
+        .period(1m)
+        .every(1m)
+    |sum('value')
+    |stateDuration(lambda: "sum" > 1)
+	.unit(1m)
+    |alert()
+	.crit(lambda: "state_duration" >= 5)
+        .stateChangesOnly(15m)
+        .noRecoveries()
+        .id('More than 1 EtcD leader in ' + env)
+        .message('{{ .ID }}
+Possible cluster split brain scenario
+<' + grafanaurl +'/Etcd_stats.json'+ grafanaenv +'|Go to Grafana>')
+        .slack()
+        .channel(slackchannel)

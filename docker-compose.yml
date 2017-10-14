@@ -1,67 +1,83 @@
-influxdb:
-  build: ./influxdb
-  ports: 
-  - "8083:8083"
-  - "8088:8088"
-  - "8086:8086"
-  environment:
-  - PRE_CREATE_DB=cf_np;cf_prd;bosh_np;bosh_prd
-  volumes: 
-  - ./data/influxdb:/data
-  restart: always
-heka:
-  build: ./heka
-  ports: 
-  - "2004:2004"
-  - "2005:2005"
-  - "8500:8500"
-  - "4352:4352"
-  - "2010:2010"
-  volumes:
-  - ./heka/hekad.toml:/etc/hekad/hekad.toml
-  links:
-  - influxdb
-  restart: always
-grafana:
-  build: ./grafana
-  ports:
-  - "3000:3000"
-  volumes:
-  - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
-  - ./data/grafana:/usr/share/grafana/data
-  environment:
-  - GF_AUTH_ANONYMOUS_ENABLED=true
-  - GF_AUTH_ANONYMOUS_ORG_ROLE=Editor
-  - GF_DASHBOARDS_JSON_ENABLED=true
-  - GF_DASHBOARDS_JSON_PATH=/etc/grafana/dashboards
-  links: 
-  - influxdb 
-  restart: always
-nozzlenp: 
-  build: ./firehose-nozzle
-  environment:
-  - NOZZLE_UAAURL=https://uaa.cf-np.company.com
-  - NOZZLE_CLIENT=uaa_nozzle_client_id
-  - NOZZLE_CLIENT_SECRET=uaa_nozzle_client_secret
-  - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
-  - NOZZLE_DEPLOYMENT=cf_aws_np
-  - NOZZLE_EVENT_FILTER=CounterEvent,ValueMetric
-  - NOZZLE_FIREHOSESUBSCRIPTIONID=cf-metrics
-  - NOZZLE_INFLUXDB_URL=http://heka:2010
-  links:
-  - heka
-  restart: always
-nozzleprd:
-  build: ./firehose-nozzle
-  environment:
-  - NOZZLE_UAAURL=https://uaa.cf-np.company.com
-  - NOZZLE_CLIENT=uaa_nozzle_client_id
-  - NOZZLE_CLIENT_SECRET=uaa_nozzle_client_secret
-  - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf-np.company.com:443
-  - NOZZLE_DEPLOYMENT=cf_aws_np
-  - NOZZLE_EVENT_FILTER=CounterEvent,ValueMetric
-  - NOZZLE_FIREHOSESUBSCRIPTIONID=cf-metrics
-  - NOZZLE_INFLUXDB_URL=http://heka:2010
-  links:
-  - heka
-  restart: always
+version: '2'
+services:
+  influxdb:
+    build: ./influxdb
+    ports: 
+    - "8083:8083"
+    - "8088:8088"
+    - "8086:8086"
+    environment:
+    - PRE_CREATE_DB=cf_np
+    volumes: 
+    - ./data/influxdb:/data
+    ulimits:
+      nofile: 1048576
+    networks:
+    - mynet
+    restart: always
+  grafana:
+    build: ./grafana
+    ports:
+    - "3000:3000"
+    volumes:
+    - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+    - ./data/grafana:/usr/share/grafana/data
+    environment:
+    - GF_AUTH_ANONYMOUS_ENABLED=true
+    - GF_AUTH_ANONYMOUS_ORG_ROLE=Editor
+    - GF_DASHBOARDS_JSON_ENABLED=true
+    - GF_DASHBOARDS_JSON_PATH=/etc/grafana/dashboards
+    networks: 
+    - mynet 
+    restart: always
+  nozzlenp: 
+    build: ./firehose-nozzle 
+    environment:
+    - NOZZLE_INFLUXDB_URL=http://influxdb:8086
+    - NOZZLE_INFLUXDB_DATABASE=cf_np
+    - NOZZLE_UAAURL=https://uaa.cf.company.com
+    - NOZZLE_CLIENT=influxdb-firehose-nozzle
+    - NOZZLE_CLIENT_SECRET=supersecret
+    - NOZZLE_TRAFFICCONTROLLERURL=wss://doppler.cf.company.com:443
+    - NOZZLE_DEPLOYMENT=cf_np
+    - NOZZLE_EVENT_FILTER=CounterEvent,ValueMetric
+    - NOZZLE_FIREHOSESUBSCRIPTIONID=cf-metrics
+    networks:
+    - mynet
+    restart: always
+  kapacitor:
+    image: kapacitor:1.3.3
+    ports:
+    - "9092:9092"
+    volumes:
+    - ./data/kapacitor:/var/lib/kapacitor
+    - ./kapacitor:/etc/kapacitor
+    environment:
+    - KAPACITOR_REPORTING_ENABLED=false
+    - KAPACITOR_INFLUXDB_0_URLS_0=http://influxdb:8086
+    - KAPACITOR_SLACK_ENABLED=true
+    - KAPACITOR_SLACK_URL=https://hooks.slack.com/services/XXXX/YYYYY/ZZZZZZZZZZZZZ
+    - KAPACITOR_SLACK_CHANNEL=#bot-testing
+    - KAPACITOR_SLACK_USERNAME=kapacitor
+    - KAPACITOR_HTTPPOST_0_ENDPOINT=jenkins-np
+    - KAPACITOR_HTTPPOST_0_URL=http://jenkins.company.com/jenkins/job/cf-cell-increase--np/build?token=secrettoken
+    - KAPACITOR_HTTPPOST_0_BASIC_AUTH_USERNAME=user
+    - KAPACITOR_HTTPPOST_0_BASIC_AUTH_PASSWORD=password
+    networks:
+    - mynet
+    restart: always
+  telegraf_np:
+    image: telegraf:1.4.2
+    ports:
+    - "8125:8125"
+    volumes:
+    - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    environment:
+    - KAPACITOR_DB=telegraf_np
+    - LISTENER_PORT=tcp://:8125
+    networks:
+    - mynet
+    restart: always
+networks:
+  mynet:
+    driver: bridge

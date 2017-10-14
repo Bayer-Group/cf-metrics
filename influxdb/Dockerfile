@@ -1,9 +1,8 @@
 FROM ubuntu:trusty 
-MAINTAINER mjseid
+MAINTAINER mjseid 
+ENV INFLUXDB_VERSION 1.3.6
 
-ENV INFLUXDB_VERSION 1.2.2
 RUN apt-get update && apt-get install -y curl openssh-client awscli 
-
 RUN curl -s -o /tmp/influxdb_latest_amd64.deb https://dl.influxdata.com/influxdb/releases/influxdb_${INFLUXDB_VERSION}_amd64.deb && \
   dpkg -i /tmp/influxdb_latest_amd64.deb && \
   rm /tmp/influxdb_latest_amd64.deb && \

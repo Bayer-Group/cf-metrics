@@ -1,0 +1,45 @@
+//curl --max-time 2 -X PUT http://localhost:8125/v1/event/fire/director -d "{\"kind\":\"alert\",\"id\":\"c0cef7c0-808e-48fd-abcb-1234567890\",\"severity\":4,\"title\":\"director - begin update deployment\",\"summary\":\"Begin update deployment for 'cf_aws_np-diego' against Director '52b23505-b43d-435c-ad13-1234567890'\",\"source\":\"director\",\"created_at\":1504142405}"
+
+var slackchannel = '#bot-testing'
+var env = 'Non-Prod'
+var database = 'cf_np'
+
+var events = stream
+    |from()
+	//.database('telegraf')
+    	.measurement('deploy_event')
+
+	//deadman alert if we don't get anything in 5 minutes
+events
+	|deadman(1.0, 5m)
+	.stateChangesOnly(15m)
+        .noRecoveries()
+	.id('Deadman alert for ' + env +' BOSH HM Forwarder')
+        .message('{{ .ID }}')
+	.slack()
+	.channel(slackchannel)
+
+events
+	// enable this to see all the bosh hm events coming across
+	//|log()
+   	|eval(lambda: if(strContains("value", 'Finish update deployment') OR strContains("value", 'Error during update'), 'true', 'false'), lambda: bool("textvalue"))
+        .as('textvalue','value')
+	.keep('value')
+	|where(lambda: "value" == bool('true'))
+	|influxDBOut()
+        .database(database)
+        .retentionPolicy('autogen')
+        .measurement('bosh_deploy')
+	    .tag('status', 'finish')
+        .precision('s')
+
+events
+	|eval(lambda: strContains("value", 'Begin update deployment'))
+        .as('value')
+	|where(lambda: "value" == bool('true'))
+    	|influxDBOut()
+        .database(database)
+        .retentionPolicy('autogen')
+        .measurement('bosh_deploy')
+	    .tag('status', 'start')
+        .precision('s')

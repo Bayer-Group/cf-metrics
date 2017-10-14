@@ -1,9 +1,8 @@
 FROM ubuntu:trusty
 
-ENV BUILD_VERSION 4.1.2
 RUN apt-get update && apt-get -y install libfontconfig wget adduser openssl ca-certificates curl supervisor
 
-RUN wget -O grafana_latest_amd64.deb https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.1.2-1486989747_amd64.deb 
+RUN wget -O grafana_latest_amd64.deb https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.5.2_amd64.deb  
 RUN dpkg -i grafana_latest_amd64.deb
 
 EXPOSE 3000

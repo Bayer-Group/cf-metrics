@@ -1,0 +1,23 @@
+// will need to run this periodically for 5 minutes to test alert
+//curl -i -XPOST 'http://localhost:8086/write?db=cf_np&precision=s' --data-binary 'firehose.bosh-hm-forwarder.system.cpu.wait,deployment=cf_np-diego,job=cell_z1,index=999 value=70 '`date +%s`''
+
+var slackchannel = '#bot-testing'
+var grafanaurl = 'http://server.company.com:3000/dashboard/file'
+var grafanaenv = '?&var-Environment=cf_np'
+
+stream
+    |from()
+        .measurement('firehose.bosh-hm-forwarder.system.cpu.wait')
+    |groupBy('job', 'index')
+    |stateDuration(lambda: "value" >= 90)
+	.unit(1m)
+    |alert()
+        .crit(lambda: "state_duration" >= 15)
+        .stateChangesOnly(15m)
+        .noRecoveries()
+        .id('CPU Wait Alert for {{ index .Tags "deployment" }}')
+        .message('{{ .ID }}
+Job {{index .Tags "job" }}/{{index .Tags "index" }} in {{index .Tags "deployment" }} using more than 50% for past 5 minutes
+<' + grafanaurl +'/vm-level-stats.json'+ grafanaenv +'|Go to Grafana>')
+        .slack()
+        .channel(slackchannel)
